@@ -98,16 +98,57 @@
       document.getElementById('hTitle').innerText = isP ? "最近明細紀錄 - 客戶專案" : "最近明細紀錄 - 廠商品號";
       render(await api("getHistory", {type: t}), t);
     }
-    async function saveP() {
-      const btn = document.getElementById('btnP'); btn.disabled = true;
-      const id = await api("submitProject", { customerID: document.getElementById('p_search').value, amount: document.getElementById('p_amt').value, itemName: document.getElementById('p_item').value, isCaseD: document.getElementById('p_d').value });
-      if(id) { alert("案號產生成功：" + id); location.reload(); } else { btn.disabled = false; }
-    }
-    async function saveV() {
-      const btn = document.getElementById('btnV'); btn.disabled = true;
-      const id = await api("submitVendor", { vendorID: document.getElementById('v_search').value, property: document.getElementById('v_prop').value, city: document.getElementById('v_city').value, itemName: document.getElementById('v_item').value });
-      if(id) { alert("品號產生成功：" + id); location.reload(); } else { btn.disabled = false; }
-    }
+   async function saveP() {
+  const btn = document.getElementById('btnP');
+  btn.disabled = true; // 防止重複點擊
+  
+  const data = { 
+    customerID: document.getElementById('p_search').value, 
+    amount: document.getElementById('p_amt').value, 
+    itemName: document.getElementById('p_item').value, 
+    isCaseD: document.getElementById('p_d').value 
+  };
+  
+  const id = await api("submitProject", data);
+  if (id) {
+    alert("案號產生成功：" + id);
+    // 關鍵修正：不重新整理網頁，直接更新下方表格
+    const history = await api("getHistory", { type: 'project' });
+    render(history, 'project');
+    // 清空輸入框以便下一筆輸入
+    document.getElementById('p_amt_show').value = "";
+    document.getElementById('p_item').value = "";
+    btn.disabled = false;
+  } else {
+    btn.disabled = false;
+  }
+}
+
+// 產生廠商品號後，留在原分頁並更新明細
+async function saveV() {
+  const btn = document.getElementById('btnV');
+  btn.disabled = true; // 防止重複點擊
+  
+  const data = { 
+    vendorID: document.getElementById('v_search').value, 
+    property: document.getElementById('v_prop').value, 
+    city: document.getElementById('v_city').value, 
+    itemName: document.getElementById('v_item').value 
+  };
+  
+  const id = await api("submitVendor", data);
+  if (id) {
+    alert("品號產生成功：" + id);
+    // 關鍵修正：留在「廠商」頁籤，僅更新下方表格
+    const history = await api("getHistory", { type: 'vendor' });
+    render(history, 'vendor');
+    // 清空輸入框
+    document.getElementById('v_item').value = "";
+    btn.disabled = false;
+  } else {
+    btn.disabled = false;
+  }
+}
   </script>
 </body>
 </html>
