@@ -2,204 +2,104 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>ERP 編碼系統 - 專業版</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    :root { --primary: #1a73e8; --bg: #f8f9fa; }
-    body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; }
-    .card { background: #fff; width: 100%; max-width: 600px; padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); margin-bottom: 30px; }
-    
-    /* 加大輸入區文字 */
-    label { display: block; margin-top: 20px; font-weight: bold; font-size: 18px; color: #333; }
-    input, select { 
-      width: 100%; padding: 15px; margin-top: 8px; border: 2px solid #eee; border-radius: 10px; 
-      box-sizing: border-box; font-size: 20px; transition: border 0.3s;
-    }
-    input:focus { border-color: var(--primary); outline: none; }
-    
-    .tabs { display: flex; border-bottom: 2px solid #eee; margin-bottom: 25px; }
+    body { font-family: sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+    .card { background: white; width: 100%; max-width: 550px; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #eee; }
     .tab { flex: 1; padding: 15px; text-align: center; cursor: pointer; color: #888; font-size: 18px; }
-    .tab.active { color: var(--primary); border-bottom: 4px solid var(--primary); font-weight: bold; }
-    
-    .btn { 
-      width: 100%; background: var(--primary); color: white; border: none; padding: 18px; 
-      border-radius: 10px; margin-top: 30px; cursor: pointer; font-size: 20px; font-weight: bold; 
-    }
-    
-    /* 底部明細表樣式 */
-    .history-container { width: 100%; max-width: 1000px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow-x: auto; }
-    .history-container h3 { margin-top: 0; border-left: 5px solid var(--primary); padding-left: 10px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 800px; }
-    th { background: #f1f3f4; color: #5f6368; text-align: left; padding: 12px; font-size: 14px; }
-    td { border-bottom: 1px solid #eee; padding: 12px; font-size: 15px; }
-    
+    .tab.active { color: #1a73e8; border-bottom: 3px solid #1a73e8; font-weight: bold; }
+    label { display: block; margin-top: 15px; font-weight: bold; font-size: 18px; }
+    input, select { width: 100%; padding: 15px; margin-top: 5px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 20px; }
+    .btn { width: 100%; background: #1a73e8; color: white; padding: 18px; border: none; border-radius: 8px; margin-top: 25px; cursor: pointer; font-size: 20px; font-weight: bold; }
+    .history { width: 100%; max-width: 900px; background: white; padding: 20px; border-radius: 10px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border-bottom: 1px solid #eee; padding: 12px; text-align: left; }
+    th { background: #f8f9fa; }
     .hidden { display: none; }
-    #msg { padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; font-weight: bold; display: none; }
   </style>
 </head>
 <body>
-
   <div class="card">
     <div class="tabs">
-      <div class="tab active" onclick="switchTab('project')">客戶工程案號</div>
-      <div class="tab" onclick="switchTab('vendor')">廠商品號系統</div>
+      <div class="tab active" onclick="switchTab('project')">客戶工程</div>
+      <div class="tab" onclick="switchTab('vendor')">廠商品號</div>
     </div>
-    
-    <div id="msg"></div>
-
-    <div id="project-form" class="form-group active">
-      <label>搜尋客戶 (代號或名稱)</label>
-      <input list="custList" id="p_search" placeholder="請輸入關鍵字...">
+    <div id="project-form">
+      <label>搜尋客戶 (輸入代號或名稱)</label>
+      <input list="custList" id="p_search" placeholder="打字自動篩選...">
       <datalist id="custList"></datalist>
-      
-      <label>金額 (自動會計格式)</label>
-      <input type="text" id="p_amt_display" placeholder="請輸入金額" oninput="formatCurrency(this)">
-      <input type="hidden" id="p_amt"> <label>合約名稱/備註</label>
-      <input type="text" id="p_name" placeholder="例如: XX工程第一期">
-      
-      <button class="btn" onclick="saveProject()">產生案號並存檔</button>
+      <label>金額 (自動千分位)</label>
+      <input type="text" id="p_amt_show" oninput="formatAmt(this)" placeholder="請輸入金額">
+      <input type="hidden" id="p_amt">
+      <label>專案名稱</label>
+      <input type="text" id="p_item" placeholder="請輸入合約名稱">
+      <label>強制 D 案?</label>
+      <select id="p_d"><option value="否">否</option><option value="是">是</option></select>
+      <button class="btn" onclick="saveP()">產生並歸檔</button>
     </div>
-
-    <div id="vendor-form" class="form-group hidden">
-      <label>搜尋廠商 (代號或名稱)</label>
-      <input list="vendList" id="v_search" placeholder="請輸入關鍵字...">
+    <div id="vendor-form" class="hidden">
+      <label>搜尋廠商</label>
+      <input list="vendList" id="v_search" placeholder="打字自動篩選...">
       <datalist id="vendList"></datalist>
-      
-      <label>備註/品項名稱</label>
-      <input type="text" id="v_name" placeholder="例如: 紘展-工程工資">
-      
-      <button class="btn" onclick="saveVendor()">產生品號並存檔</button>
+      <label>性質</label>
+      <select id="v_prop" onchange="checkCity()"><option>承攬(連工帶料)</option><option>工資</option><option>工案吊車費</option><option>工案運輸費</option></select>
+      <div id="v_city_box" class="hidden"><label>區域</label><select id="v_city"><option>台北</option><option>桃園</option><option>新竹</option><option>台中</option><option>高雄</option><option>台南</option><option>苗栗</option><option>彰化</option><option>南投</option><option>雲林</option><option>嘉義</option><option>屏東</option><option>宜蘭</option><option>花蓮</option><option>台東</option><option>基隆</option><option>離島</option></select></div>
+      <label>品項名稱</label>
+      <input type="text" id="v_item" placeholder="例如: 紘展-XX工程工資">
+      <button class="btn" onclick="saveV()">產生並歸檔</button>
     </div>
   </div>
+  <div class="history"><h3>最近明細紀錄</h3><table id="hTable"><thead><tr id="hHead"></tr></thead><tbody id="hBody"></tbody></table></div>
 
-  <div class="history-container">
-    <h3 id="history-title">最近 10 筆紀錄 - 客戶專案</h3>
-    <table id="historyTable">
-      <thead><tr id="tableHeader"></tr></thead>
-      <tbody id="tableBody"></tbody>
-    </table>
-  </div>
-// 將資料轉換為表格 HTML
-function renderTable(rows, type) {
-  const tableBody = document.getElementById('tableBody');
-  const tableHeader = document.getElementById('tableHeader');
-  tableBody.innerHTML = ""; // 清空舊內容
-
-  if (!rows || rows.length === 0) {
-    tableBody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>目前雲端尚無紀錄</td></tr>";
-    return;
-  }
-
-  // 設定標題
-  if (type === 'project') {
-    tableHeader.innerHTML = "<th>日期</th><th>案號</th><th>客戶代號</th><th>合約金額</th><th>專案名稱</th>";
-  } else {
-    tableHeader.innerHTML = "<th>日期</th><th>品號</th><th>廠商代號</th><th>性質</th><th>品項名稱</th>";
-  }
-
-  // 填入行資料
-  rows.forEach(row => {
-    const tr = document.createElement('tr');
-    // 金額欄位 (如果是客戶案號，row[3] 是金額，加上逗點)
-    let amountStr = (type === 'project') ? Number(row[3]).toLocaleString() : row[3];
-    
-    tr.innerHTML = `
-      <td>${row[0]}</td>
-      <td style="font-weight:bold; color:#1a73e8;">${row[1]}</td>
-      <td>${row[2]}</td>
-      <td>${amountStr}</td>
-      <td>${row[5] || ''}</td>
-    `;
-    tableBody.appendChild(tr);
-  });
-}
-
-// 當切換頁籤時，重新向雲端讀取不同的歷史紀錄
-function switchTab(t) {
-  // ... 原有的頁籤切換 CSS 邏輯 ...
-  
-  // 向雲端抓取對應的歷史資料
-  fetchData("getHistory", { type: t }, (history) => {
-    renderTable(history, t);
-  });
-}
-  
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbylFcjL1lhcDPRLgCS8ChlsDHOQ273SyIsNDGe65mThL0vjafFfTe3McX4dvbiLjDc3/exec"; 
+    const API_URL = "https://script.google.com/macros/s/AKfycbylFcjL1lhcDPRLgCS8ChlsDHOQ273SyIsNDGe65mThL0vjafFfTe3McX4dvbiLjDc3/exec";
+    let curTab = 'project';
 
-    // 1. 會計百位逗點格式化
-    function formatCurrency(el) {
-      let val = el.value.replace(/[^0-9]/g, ""); // 只留數字
-      document.getElementById('p_amt').value = val; // 存入隱藏欄位
-      if (val === "") { el.value = ""; return; }
-      el.value = Number(val).toLocaleString('en-US'); // 轉為 1,000,000 格式
+    function formatAmt(el) {
+      let val = el.value.replace(/[^0-9]/g, '');
+      document.getElementById('p_amt').value = val;
+      el.value = val ? Number(val).toLocaleString() : '';
     }
 
-    // 2. 網頁初始化載入資料
-    window.onload = () => {
-      fetchData("getInitialData", {}, (data) => {
-        // 填充下拉清單
-        fillDatalist('custList', data.customers);
-        fillDatalist('vendList', data.vendors);
-        // 顯示初始表格 (客戶專案)
-        updateTable(data.projectHistory, 'project');
-      });
+    function checkCity() {
+      const p = document.getElementById('v_prop').value;
+      document.getElementById('v_city_box').className = p.includes('吊車') || p.includes('運輸') ? '' : 'hidden';
+    }
+
+    async function call(action, data) {
+      const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action, data }) });
+      return (await res.json()).data;
+    }
+
+    window.onload = async () => {
+      const d = await call("getInitialData", {});
+      d.customers.forEach(c => document.getElementById('custList').innerHTML += `<option value="${c.id}">${c.name}</option>`);
+      d.vendors.forEach(v => document.getElementById('vendList').innerHTML += `<option value="${v.id}">${v.name}</option>`);
+      render(d.projectHistory, 'project');
     };
 
-    function fillDatalist(id, list) {
-      const el = document.getElementById(id);
-      el.innerHTML = list.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+    function render(rows, type) {
+      const head = document.getElementById('hHead'), body = document.getElementById('hBody');
+      head.innerHTML = type === 'project' ? "<th>日期</th><th>案號</th><th>客戶</th><th>金額</th><th>專案名稱</th>" : "<th>日期</th><th>品號</th><th>廠商</th><th>性質</th><th>品項名稱</th>";
+      body.innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${type==='project'?Number(r[3]).toLocaleString():r[3]}</td><td>${r[5]}</td></tr>`).join('');
     }
 
-    // 3. 切換頁籤與表格
     function switchTab(t) {
-      const isP = t === 'project';
-      document.getElementById('project-form').classList.toggle('active', isP);
-      document.getElementById('vendor-form').classList.toggle('active', !isP);
-      document.querySelectorAll('.tab')[0].classList.toggle('active', isP);
-      document.querySelectorAll('.tab')[1].classList.toggle('active', !isP);
-      
-      // 更新表格標題並清空內容，等待重新抓取或使用緩存
-      document.getElementById('history-title').innerText = isP ? "最近紀錄 - 客戶專案" : "最近紀錄 - 廠商品號";
-      fetchData("getHistory", { type: t }, (history) => updateTable(history, t));
+      curTab = t;
+      document.getElementById('project-form').className = t === 'project' ? '' : 'hidden';
+      document.getElementById('vendor-form').className = t === 'vendor' ? '' : 'hidden';
+      document.querySelectorAll('.tab').forEach((el, i) => el.className = (i===(t==='project'?0:1)) ? 'tab active' : 'tab');
+      call("getHistory", {type: t}).then(rows => render(rows, t));
     }
 
-    function updateTable(data, type) {
-      const header = document.getElementById('tableHeader');
-      const body = document.getElementById('tableBody');
-      body.innerHTML = "";
-      
-      if (type === 'project') {
-        header.innerHTML = "<th>日期</th><th>案號</th><th>客戶</th><th>金額</th><th>專案名稱</th>";
-        data.forEach(r => {
-          body.innerHTML += `<tr><td>${formatDate(r[0])}</td><td>${r[1]}</td><td>${r[2]}</td><td>${Number(r[3]).toLocaleString()}</td><td>${r[5] || ''}</td></tr>`;
-        });
-      } else {
-        header.innerHTML = "<th>日期</th><th>品號</th><th>廠商</th><th>性質</th><th>品項名稱</th>";
-        data.forEach(r => {
-          body.innerHTML += `<tr><td>${formatDate(r[0])}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[5] || ''}</td></tr>`;
-        });
-      }
+    async function saveP() {
+      const id = await call("submitProject", { customerID: document.getElementById('p_search').value, amount: document.getElementById('p_amt').value, itemName: document.getElementById('p_item').value, isCaseD: document.getElementById('p_d').value });
+      alert("成功產生案號：" + id); location.reload();
     }
 
-    function formatDate(dateStr) {
-      const d = new Date(dateStr);
-      return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${d.getMinutes()}`;
-    }
-
-    async function fetchData(action, data, cb) {
-      const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action, data }) });
-      const json = await res.json();
-      if (json.status === "success") cb(json.data);
-    }
-
-    function saveProject() {
-      const data = { 
-        customerID: document.getElementById('p_search').value, 
-        amount: document.getElementById('p_amt').value, 
-        itemName: document.getElementById('p_name').value 
-      };
-      fetchData("submitProject", data, () => { alert("存檔成功"); location.reload(); });
+    async function saveV() {
+      const id = await call("submitVendor", { vendorID: document.getElementById('v_search').value, property: document.getElementById('v_prop').value, city: document.getElementById('v_city').value, itemName: document.getElementById('v_item').value });
+      alert("成功產生品號：" + id); location.reload();
     }
   </script>
 </body>
