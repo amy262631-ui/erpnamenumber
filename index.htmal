@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: "Microsoft JhengHei", sans-serif; background-color: #eef2f7; padding: 20px; display: flex; justify-content: center; }
+    .card { background: #fff; width: 100%; max-width: 450px; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+    .tabs { display: flex; border-bottom: 2px solid #eee; margin-bottom: 20px; }
+    .tab { flex: 1; padding: 12px; text-align: center; cursor: pointer; border: none; background: none; color: #888; transition: 0.3s; }
+    .tab.active { color: #1a73e8; border-bottom: 3px solid #1a73e8; font-weight: bold; }
+    .form-group { display: none; }
+    .form-group.active { display: block; }
+    label { display: block; margin-top: 15px; font-size: 14px; color: #666; }
+    select, input { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 15px; }
+    button.btn { width: 100%; background: #1a73e8; color: white; border: none; padding: 14px; border-radius: 8px; margin-top: 25px; cursor: pointer; font-size: 16px; font-weight: bold; }
+    #msg { margin-top: 15px; padding: 12px; border-radius: 8px; display: none; text-align: center; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="tabs">
+      <div class="tab active" id="t1" onclick="switchTab('project')">客戶工程</div>
+      <div class="tab" id="t2" onclick="switchTab('vendor')">廠商品號</div>
+    </div>
+
+    <div id="msg"></div>
+
+    <div id="f1" class="form-group active">
+      <label>客戶選擇</label>
+      <select id="p_cust"><option>載入中...</option></select>
+      <label>類型選項</label>
+      <select id="p_d"><option value="否">合約工程 (自動 A/B/C)</option><option value="是">設備銷售 (手動 D)</option></select>
+      <label>合約金額</label>
+      <input type="number" id="p_amt" placeholder="請輸入金額">
+      <button class="btn" onclick="sendP()">產生並存入資料庫</button>
+    </div>
+
+    <div id="f2" class="form-group">
+      <label>廠商選擇</label>
+      <select id="v_vend"><option>載入中...</option></select>
+      <label>性質</label>
+      <select id="v_prop"><option value="設備">設備 (7A)</option><option value="點工">點工 (7B)</option><option value="吊車">吊車 (7C1)</option><option value="運輸">運輸 (7C2)</option></select>
+      <label>縣市 (7C類才需選擇)</label>
+      <select id="v_city"><option value="">請選擇</option><option>台北</option><option>桃園</option><option>新竹</option><option>台中</option><option>嘉義</option><option>台南</option><option>高雄</option><option>屏東</option><option>宜蘭</option><option>花蓮</option><option>台東</option><option>基隆</option><option>苗栗</option><option>彰化</option><option>南投</option><option>雲林</option><option>離島</option></select>
+      <button class="btn" onclick="sendV()">產生並存入資料庫</button>
+    </div>
+  </div>
+
+  <script>
+    window.onload = () => {
+      google.script.run.withSuccessHandler(d => {
+        const pc = document.getElementById('p_cust'), vv = document.getElementById('v_vend');
+        pc.innerHTML = vv.innerHTML = '<option value="">請選取...</option>';
+        d.customers.forEach(c => pc.innerHTML += `<option value="${c.id}">${c.id} ${c.name}</option>`);
+        d.vendors.forEach(v => vv.innerHTML += `<option value="${v.id}">${v.id} ${v.name}</option>`);
+      }).getDropdownData();
+    };
+
+    function switchTab(t) {
+      const isP = t === 'project';
+      document.getElementById('t1').className = isP ? 'tab active' : 'tab';
+      document.getElementById('t2').className = isP ? 'tab' : 'tab active';
+      document.getElementById('f1').className = isP ? 'form-group active' : 'form-group';
+      document.getElementById('f2').className = isP ? 'form-group' : 'form-group active';
+    }
+
+    function res(m) { const x = document.getElementById('msg'); x.style.display='block'; x.innerText=m; x.style.background='#d4edda'; }
+
+    function sendP() {
+      google.script.run.withSuccessHandler(res).submitProject({
+        customerID: document.getElementById('p_cust').value,
+        isCaseD: document.getElementById('p_d').value,
+        amount: document.getElementById('p_amt').value
+      });
+    }
+
+    function sendV() {
+      google.script.run.withSuccessHandler(res).submitVendor({
+        vendorID: document.getElementById('v_vend').value,
+        property: document.getElementById('v_prop').value,
+        city: document.getElementById('v_city').value
+      });
+    }
+  </script>
+</body>
+</html>
