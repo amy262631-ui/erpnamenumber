@@ -2,91 +2,130 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>ERP 編碼系統</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: "Microsoft JhengHei", sans-serif; background-color: #eef2f7; display: flex; justify-content: center; padding: 20px; }
-    .card { background: #fff; width: 100%; max-width: 450px; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-    .tabs { display: flex; border-bottom: 2px solid #eee; margin-bottom: 20px; }
-    .tab { flex: 1; padding: 12px; text-align: center; cursor: pointer; border: none; background: none; color: #888; }
+    body { font-family: sans-serif; background: #f4f7f9; display: flex; justify-content: center; padding: 20px; }
+    .card { background: white; width: 100%; max-width: 500px; padding: 25px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+    .tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #eee; }
+    .tab { flex: 1; padding: 12px; text-align: center; cursor: pointer; color: #888; }
     .tab.active { color: #1a73e8; border-bottom: 3px solid #1a73e8; font-weight: bold; }
     .form-group { display: none; }
     .form-group.active { display: block; }
-    label { display: block; margin-top: 15px; font-size: 14px; color: #666; }
-    select, input { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 15px; }
-    button.btn { width: 100%; background: #1a73e8; color: white; border: none; padding: 14px; border-radius: 8px; margin-top: 25px; cursor: pointer; font-size: 16px; font-weight: bold; }
-    #msg { margin-top: 15px; padding: 12px; border-radius: 8px; display: none; text-align: center; font-size: 14px; background: #d4edda; }
+    label { display: block; margin-top: 15px; font-weight: bold; font-size: 14px; }
+    input, select { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+    .btn { width: 100%; background: #1a73e8; color: white; padding: 14px; border: none; border-radius: 6px; margin-top: 25px; cursor: pointer; font-size: 16px; }
+    #msg { margin-top: 15px; padding: 12px; border-radius: 6px; text-align: center; font-weight: bold; display: none; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="tabs">
-      <div class="tab active" onclick="switchTab('project')">客戶工程</div>
-      <div class="tab" onclick="switchTab('vendor')">廠商品號</div>
+      <div class="tab active" onclick="switchTab('project')">客戶工程案號</div>
+      <div class="tab" onclick="switchTab('vendor')">廠商品號系統</div>
     </div>
     <div id="msg"></div>
-    <div id="f1" class="form-group active">
-      <label>客戶選擇</label>
-      <select id="p_cust"><option>載入中...</option></select>
-      <label>類型選項</label>
-      <select id="p_d"><option value="否">合約工程 (自動 A/B/C)</option><option value="是">設備銷售 (手動 D)</option></select>
+
+    <div id="project-form" class="form-group active">
+      <label>搜尋客戶 (輸入代號或名稱)</label>
+      <input list="custList" id="p_search" placeholder="打字篩選...">
+      <datalist id="custList"></datalist>
+      
+      <label>手動改 D 案?</label>
+      <select id="p_d"><option value="否">否 (依金額自動 A/B/C)</option><option value="是">是 (設備銷售 D)</option></select>
+      
       <label>合約金額</label>
       <input type="number" id="p_amt" placeholder="請輸入金額">
-      <button class="btn" onclick="sendP()">產生專案案號</button>
+      
+      <label>合約名稱/備註</label>
+      <input type="text" id="p_name" placeholder="例如: 某某工程案">
+      
+      <button class="btn" onclick="saveProject()">產生案號並歸檔</button>
     </div>
-    <div id="f2" class="form-group">
-      <label>廠商選擇</label>
-      <select id="v_vend"><option>載入中...</option></select>
+
+    <div id="vendor-form" class="form-group">
+      <label>搜尋廠商 (輸入代號或名稱)</label>
+      <input list="vendList" id="v_search" placeholder="打字篩選...">
+      <datalist id="vendList"></datalist>
+
       <label>性質</label>
-      <select id="v_prop"><option value="設備">設備 (7A)</option><option value="點工">點工 (7B)</option><option value="吊車">吊車 (7C1)</option><option value="運輸">運輸 (7C2)</option></select>
-      <label>縣市</label>
-      <select id="v_city"><option value="">請選擇</option><option>台北</option><option>桃園</option><option>新竹</option><option>台中</option><option>高雄</option><option>台南</option><option>宜蘭</option><option>花蓮</option><option>台東</option><option>離島</option></select>
-      <button class="btn" onclick="sendV()">產生產品品號</button>
+      <select id="v_prop" onchange="toggleCity()">
+        <option value="承攬(連工帶料)">承攬(連工帶料) (7A)</option>
+        <option value="工資">工資 (7B)</option>
+        <option value="工案吊車費">工案吊車費 (7C1)</option>
+        <option value="工案運輸費">工案運輸費 (7C2)</option>
+      </select>
+
+      <div id="city-group" class="hidden">
+        <label>縣市區域</label>
+        <select id="v_city">
+          <option value="">請選擇</option>
+          <option>台北</option><option>桃園</option><option>新竹</option><option>台中</option><option>高雄</option><option>台南</option>
+          <option>宜蘭</option><option>花蓮</option><option>台東</option><option>離島</option><option>苗栗</option><option>彰化</option>
+          <option>南投</option><option>雲林</option><option>嘉義</option><option>屏東</option><option>基隆</option>
+        </select>
+      </div>
+
+      <label>品項名稱/備註</label>
+      <input type="text" id="v_name" placeholder="例如: 紘展-XX工程工資">
+      
+      <button class="btn" onclick="saveVendor()">產生品號並歸檔</button>
     </div>
   </div>
 
   <script>
-    // 重要：請貼上您部署後的 Google Web App 網址
-    const API_URL = "https://script.google.com/macros/s/AKfycbylFcjL1lhcDPRLgCS8ChlsDHOQ273SyIsNDGe65mThL0vjafFfTe3McX4dvbiLjDc3/exec";
+    const API_URL = "您的_WEB_APP_URL"; // ***請務必替換***
 
-    window.onload = () => callAPI("getDropdownData", {}, (res) => {
-        const pc = document.getElementById('p_cust'), vv = document.getElementById('v_vend');
-        pc.innerHTML = vv.innerHTML = '<option value="">請選取...</option>';
-        res.customers.forEach(c => pc.innerHTML += `<option value="${c.id}">${c.id} ${c.name}</option>`);
-        res.vendors.forEach(v => vv.innerHTML += `<option value="${v.id}">${v.id} ${v.name}</option>`);
-    });
+    window.onload = () => {
+      fetchData("getDropdownData", {}, (data) => {
+        const cList = document.getElementById('custList');
+        const vList = document.getElementById('vendList');
+        data.customers.forEach(c => cList.innerHTML += `<option value="${c.id}">${c.name}</option>`);
+        data.vendors.forEach(v => vList.innerHTML += `<option value="${v.id}">${v.name}</option>`);
+      });
+    };
 
-    async function callAPI(action, data, callback) {
-        document.getElementById('msg').style.display='none';
-        try {
-            const response = await fetch(API_URL, {
-                method: "POST",
-                body: JSON.stringify({ action: action, data: data })
-            });
-            const result = await response.json();
-            if (result.status === "success") callback(result.data);
-            else alert("錯誤: " + result.message);
-        } catch (e) { alert("連線失敗，請檢查 URL 或權限設定"); }
+    function toggleCity() {
+      const prop = document.getElementById('v_prop').value;
+      document.getElementById('city-group').className = prop.includes('7C') || prop.includes('工案') ? '' : 'hidden';
+    }
+
+    async function fetchData(action, data, cb) {
+      const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action, data }) });
+      const json = await res.json();
+      if (json.status === "success") cb(json.data);
+      else alert("錯誤: " + json.message);
     }
 
     function switchTab(t) {
-      document.querySelectorAll('.tab').forEach((el, i) => el.classList.toggle('active', (i === (t === 'project' ? 0 : 1))));
-      document.getElementById('f1').classList.toggle('active', t === 'project');
-      document.getElementById('f2').classList.toggle('active', t === 'vendor');
+      document.getElementById('project-form').className = t === 'project' ? 'form-group active' : 'form-group';
+      document.getElementById('vendor-form').className = t === 'vendor' ? 'form-group active' : 'form-group';
+      document.querySelectorAll('.tab').forEach((el, i) => el.className = (i === (t==='project'?0:1)) ? 'tab active' : 'tab');
     }
 
-    function sendP() {
-      const d = { customerID: document.getElementById('p_cust').value, isCaseD: document.getElementById('p_d').value, amount: document.getElementById('p_amt').value };
-      callAPI("submitProject", d, (id) => { 
-          const m = document.getElementById('msg'); m.style.display='block'; m.innerText='成功產生案號：' + id;
-      });
+    function saveProject() {
+      const data = {
+        customerID: document.getElementById('p_search').value,
+        isCaseD: document.getElementById('p_d').value,
+        amount: document.getElementById('p_amt').value,
+        itemName: document.getElementById('p_name').value
+      };
+      fetchData("submitProject", data, (id) => showMsg("成功！案號：" + id));
     }
 
-    function sendV() {
-      const d = { vendorID: document.getElementById('v_vend').value, property: document.getElementById('v_prop').value, city: document.getElementById('v_city').value };
-      callAPI("submitVendor", d, (id) => {
-          const m = document.getElementById('msg'); m.style.display='block'; m.innerText='成功產生品號：' + id;
-      });
+    function saveVendor() {
+      const data = {
+        vendorID: document.getElementById('v_search').value,
+        property: document.getElementById('v_prop').value,
+        city: document.getElementById('v_city').value,
+        itemName: document.getElementById('v_name').value
+      };
+      fetchData("submitVendor", data, (id) => showMsg("成功！品號：" + id));
+    }
+
+    function showMsg(m) {
+      const el = document.getElementById('msg');
+      el.innerText = m; el.style.display = 'block'; el.style.background = '#d4edda';
     }
   </script>
 </body>
