@@ -2,15 +2,13 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>ERP 編碼系統 - 專業版</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ERP 編碼系統</title>
   <style>
     :root { --primary: #1a73e8; --bg: #f8f9fa; }
     body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; }
     .card { background: #fff; width: 100%; max-width: 550px; padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); margin-bottom: 30px; }
     label { display: block; margin-top: 20px; font-weight: bold; font-size: 18px; color: #333; }
     input, select { width: 100%; padding: 15px; margin-top: 8px; border: 2px solid #eee; border-radius: 10px; box-sizing: border-box; font-size: 20px; outline: none; }
-    input:focus { border-color: var(--primary); }
     .tabs { display: flex; border-bottom: 2px solid #eee; margin-bottom: 25px; }
     .tab { flex: 1; padding: 15px; text-align: center; cursor: pointer; color: #888; font-size: 18px; }
     .tab.active { color: var(--primary); border-bottom: 4px solid var(--primary); font-weight: bold; }
@@ -23,115 +21,86 @@
   </style>
 </head>
 <body>
-
   <div class="card">
     <div class="tabs">
       <div class="tab active" id="tab-p" onclick="switchTab('project')">客戶工程案號</div>
       <div class="tab" id="tab-v" onclick="switchTab('vendor')">廠商品號系統</div>
     </div>
-    
     <div id="project-form">
-      <label>搜尋客戶 (代號或名稱)</label>
-      <input list="custList" id="p_search" placeholder="請輸入關鍵字...">
+      <label>搜尋客戶</label>
+      <input list="custList" id="p_search" placeholder="打字搜尋客戶...">
       <datalist id="custList"></datalist>
-      <label>金額 (自動會計格式)</label>
-      <input type="text" id="p_amt_display" placeholder="請輸入金額" oninput="formatCurrency(this)">
+      <label>金額</label>
+      <input type="text" id="p_amt_show" oninput="formatAmt(this)" placeholder="請輸入金額">
       <input type="hidden" id="p_amt">
-      <label>合約名稱/備註</label>
-      <input type="text" id="p_name" placeholder="例如: XX工程第一期">
+      <label>備註/名稱</label>
+      <input type="text" id="p_item" placeholder="請輸入名稱">
       <label>強制 D 案?</label>
       <select id="p_d"><option value="否">否</option><option value="是">是</option></select>
-      <button class="btn" onclick="saveProject()">產生案號並存檔</button>
+      <button class="btn" onclick="saveP()">產生案號並存檔</button>
     </div>
-
     <div id="vendor-form" class="hidden">
-      <label>搜尋廠商 (代號或名稱)</label>
-      <input list="vendList" id="v_search" placeholder="請輸入關鍵字...">
+      <label>搜尋廠商</label>
+      <input list="vendList" id="v_search" placeholder="打字搜尋廠商...">
       <datalist id="vendList"></datalist>
       <label>性質</label>
-      <select id="v_prop" onchange="toggleCity()">
-        <option>承攬(連工帶料)</option><option>工資</option>
-        <option>7C1(吊車)</option><option>7C2(運輸)</option>
-      </select>
+      <select id="v_prop" onchange="checkCity()"><option>承攬(連工帶料)</option><option>工資</option><option>7C1(吊車)</option><option>7C2(運輸)</option></select>
       <div id="v_city_box" class="hidden">
-        <label>縣市區域</label>
-        <select id="v_city">
-          <option value="">請選擇區域</option>
-          <option>台北</option><option>桃園</option><option>新竹</option><option>台中</option><option>高雄</option>
-        </select>
+        <label>區域</label>
+        <select id="v_city"><option value="">請選擇</option><option>台北</option><option>桃園</option><option>新竹</option><option>台中</option><option>高雄</option><option>苗栗</option><option>彰化</option><option>南投</option><option>雲林</option><option>嘉義</option><option>屏東</option><option>宜蘭</option><option>花蓮</option><option>台東</option><option>基隆</option><option>離島</option></select>
       </div>
-      <label>備註/品項名稱</label>
-      <input type="text" id="v_name" placeholder="例如: 紘展-工程工資">
-      <button class="btn" onclick="saveVendor()">產生品號並存檔</button>
+      <label>備註/品項</label>
+      <input type="text" id="v_item" placeholder="例如: 紘展-工程工資">
+      <button class="btn" onclick="saveV()">產生品號並存檔</button>
     </div>
   </div>
-
-  <div class="history-container">
-    <h3 id="history-title">最近明細紀錄 - 客戶專案</h3>
-    <table>
-      <thead><tr id="tableHeader"></tr></thead>
-      <tbody id="tableBody"><tr><td colspan="5" style="text-align:center;">資料讀取中...</td></tr></tbody>
-    </table>
-  </div>
+  <div class="history-container"><h3 id="hTitle">最近明細紀錄 - 客戶專案</h3><table><thead><tr id="hHead"></tr></thead><tbody id="hBody"></tbody></table></div>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbylFcjL1lhcDPRLgCS8ChlsDHOQ273SyIsNDGe65mThL0vjafFfTe3McX4dvbiLjDc3/exec"; 
+    const API_URL = "https://script.google.com/macros/s/AKfycbylFcjL1lhcDPRLgCS8ChlsDHOQ273SyIsNDGe65mThL0vjafFfTe3McX4dvbiLjDc3/exec"; // ***這裡要換掉***
 
-    function formatCurrency(el) {
-      let val = el.value.replace(/[^0-9]/g, "");
+    function formatAmt(el) {
+      let val = el.value.replace(/[^0-9]/g, '');
       document.getElementById('p_amt').value = val;
-      el.value = val ? Number(val).toLocaleString() : "";
+      el.value = val ? Number(val).toLocaleString() : '';
     }
-
-    function toggleCity() {
+    function checkCity() {
       const p = document.getElementById('v_prop').value;
       document.getElementById('v_city_box').className = p.includes('7C') ? '' : 'hidden';
     }
-
-    async function callAPI(action, data) {
-      try {
-        const response = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action, data }) });
-        const json = await response.json();
-        return json.status === "success" ? json.data : null;
-      } catch (e) { return null; }
+    async function api(action, data) {
+      const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action, data }) });
+      const json = await res.json();
+      return json.data;
     }
-
-    function renderTable(rows, type) {
-      const head = document.getElementById('tableHeader');
-      const body = document.getElementById('tableBody');
-      head.innerHTML = type === 'project' ? "<th>日期</th><th>案號</th><th>客戶代號</th><th>合約金額</th><th>專案名稱</th>" : "<th>日期</th><th>品號</th><th>廠商代號</th><th>性質</th><th>品項名稱</th>";
-      body.innerHTML = (rows && rows.length > 0) ? rows.map(r => `<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td><td>${type==='project'?Number(r[3]).toLocaleString():r[3]}</td><td>${r[5]||''}</td></tr>`).join('') : "<tr><td colspan='5' style='text-align:center;'>尚未有紀錄</td></tr>";
+    function render(rows, type) {
+      const head = document.getElementById('hHead'), body = document.getElementById('hBody');
+      head.innerHTML = type === 'project' ? "<th>日期</th><th>案號</th><th>客戶</th><th>金額</th><th>名稱</th>" : "<th>日期</th><th>品號</th><th>廠商</th><th>性質</th><th>品項</th>";
+      body.innerHTML = rows && rows.length > 0 ? rows.map(r => `<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td><td>${type==='project'?Number(r[3]).toLocaleString():r[3]}</td><td>${r[5]||''}</td></tr>`).join('') : "<tr><td colspan='5' style='text-align:center;'>尚未有紀錄</td></tr>";
     }
-
     window.onload = async () => {
-      const res = await callAPI("getInitialData", {});
-      if (res) {
-        res.customers.forEach(c => document.getElementById('custList').innerHTML += `<option value="${c.id}">${c.name}</option>`);
-        res.vendors.forEach(v => document.getElementById('vendList').innerHTML += `<option value="${v.id}">${v.name}</option>`);
-        renderTable(res.projectHistory, 'project');
+      const d = await api("getInitialData", {});
+      if(d) {
+        d.customers.forEach(c => document.getElementById('custList').innerHTML += `<option value="${c.id}">${c.name}</option>`);
+        d.vendors.forEach(v => document.getElementById('vendList').innerHTML += `<option value="${v.id}">${v.name}</option>`);
+        render(d.projectHistory, 'project');
       }
     };
-
     async function switchTab(t) {
       const isP = t === 'project';
       document.getElementById('project-form').className = isP ? '' : 'hidden';
       document.getElementById('vendor-form').className = isP ? 'hidden' : '';
       document.getElementById('tab-p').className = isP ? 'tab active' : 'tab';
       document.getElementById('tab-v').className = isP ? 'tab' : 'tab active';
-      document.getElementById('history-title').innerText = isP ? "最近明細紀錄 - 客戶專案" : "最近明細紀錄 - 廠商品號";
-      const history = await callAPI("getHistory", { type: t });
-      renderTable(history, t);
+      document.getElementById('hTitle').innerText = isP ? "最近明細紀錄 - 客戶專案" : "最近明細紀錄 - 廠商品號";
+      render(await api("getHistory", {type: t}), t);
     }
-
-    async function saveProject() {
-      const data = { customerID: document.getElementById('p_search').value, amount: document.getElementById('p_amt').value, itemName: document.getElementById('p_name').value, isCaseD: document.getElementById('p_d').value };
-      const id = await callAPI("submitProject", data);
+    async function saveP() {
+      const id = await api("submitProject", { customerID: document.getElementById('p_search').value, amount: document.getElementById('p_amt').value, itemName: document.getElementById('p_item').value, isCaseD: document.getElementById('p_d').value });
       if(id) { alert("案號已產生：" + id); location.reload(); }
     }
-
-    async function saveVendor() {
-      const data = { vendorID: document.getElementById('v_search').value, property: document.getElementById('v_prop').value, city: document.getElementById('v_city').value, itemName: document.getElementById('v_name').value };
-      const id = await callAPI("submitVendor", data);
+    async function saveV() {
+      const id = await api("submitVendor", { vendorID: document.getElementById('v_search').value, property: document.getElementById('v_prop').value, city: document.getElementById('v_city').value, itemName: document.getElementById('v_item').value });
       if(id) { alert("品號已產生：" + id); location.reload(); }
     }
   </script>
