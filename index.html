@@ -77,18 +77,39 @@
     const API_URL = "https://script.google.com/macros/library/d/1Ui-euy_oge-HdvvPZHJVU8S1W1Sd8veyngguHiD72LvZ1XkDrSWSQAv4/3"; // ***請務必替換***
 
     window.onload = () => {
-      fetchData("getDropdownData", {}, (data) => {
-        const cList = document.getElementById('custList');
-        const vList = document.getElementById('vendList');
-        data.customers.forEach(c => cList.innerHTML += `<option value="${c.id}">${c.name}</option>`);
-        data.vendors.forEach(v => vList.innerHTML += `<option value="${v.id}">${v.name}</option>`);
-      });
-    };
+  // 網頁開啟立刻抓取主檔
+  fetchData("getDropdownData", {}, (data) => {
+    const cList = document.getElementById('custList');
+    const vList = document.getElementById('vendList');
+    
+    // 清空並重新填充
+    cList.innerHTML = "";
+    vList.innerHTML = "";
 
-    function toggleCity() {
-      const prop = document.getElementById('v_prop').value;
-      document.getElementById('city-group').className = prop.includes('7C') || prop.includes('工案') ? '' : 'hidden';
-    }
+    // 格式優化：代號 - 名稱，方便打第一個字就配對
+    data.customers.forEach(c => {
+      let opt = document.createElement('option');
+      opt.value = c.id;
+      opt.label = c.name; 
+      cList.appendChild(opt);
+    });
+
+    data.vendors.forEach(v => {
+      let opt = document.createElement('option');
+      opt.value = v.id;
+      opt.label = v.name;
+      vList.appendChild(opt);
+    });
+    console.log("主檔資料載入完成");
+  });
+};
+
+// 監聽性質切換：只有吊車(7C1)與運輸(7C2)顯示縣市
+function toggleCity() {
+  const prop = document.getElementById('v_prop').value;
+  const is7C = prop.includes('吊車') || prop.includes('運輸');
+  document.getElementById('city-group').style.display = is7C ? 'block' : 'none';
+}
 
     async function fetchData(action, data, cb) {
       const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action, data }) });
