@@ -27,6 +27,7 @@
       <div class="tab active" id="tab-p" onclick="switchTab('project')">客戶工程案號</div>
       <div class="tab" id="tab-v" onclick="switchTab('vendor')">廠商品號系統</div>
     </div>
+    
     <div id="project-form">
       <label>搜尋客戶</label>
       <input list="custList" id="p_search" placeholder="打字搜尋...">
@@ -40,6 +41,7 @@
       <select id="p_d"><option value="否">否</option><option value="是">是</option></select>
       <button class="btn" id="btnP" onclick="saveP()">產生案號並存檔</button>
     </div>
+
     <div id="vendor-form" class="hidden">
       <label>搜尋廠商</label>
       <input list="vendList" id="v_search" placeholder="打字搜尋...">
@@ -48,39 +50,75 @@
       <select id="v_prop" onchange="checkCity()"><option>承攬(連工帶料)</option><option>工資</option><option>7C1(吊車)</option><option>7C2(運輸)</option></select>
       <div id="v_city_box" class="hidden">
         <label>區域</label>
-        <select id="v_city"><option value="">請選擇</option><option>台北</option><option>桃園</option><option>新竹</option><option>台中</option><option>高雄</option><option>苗栗</option><option>彰化</option><option>南投</option><option>雲林</option><option>嘉義</option><option>屏東</option><option>宜蘭</option><option>花蓮</option><option>台東</option><option>基隆</option><option>離島</option></select>
+        <select id="v_city"><option value="">請選擇</option><option>台北</option><option>桃園</option><option>新竹</option><option>台中</option><option>高雄</option><option>宜蘭</option><option>其他</option></select>
       </div>
       <label>品項/備註</label>
       <input type="text" id="v_item" placeholder="品項名稱">
       <button class="btn" id="btnV" onclick="saveV()">產生品號並存檔</button>
     </div>
   </div>
-  <div class="history-container"><h3 id="hTitle">最近明細紀錄 - 客戶專案</h3><table><thead><tr id="hHead"></tr></thead><tbody id="hBody"></tbody></table></div>
+
+  <div class="history-container">
+    <h3 id="hTitle">最近明細紀錄 - 客戶專案</h3>
+    <table>
+      <thead><tr id="hHead"></tr></thead>
+      <tbody id="hBody"></tbody>
+    </table>
+  </div>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbylFcjL1lhcDPRLgCS8ChlsDHOQ273SyIsNDGe65mThL0vjafFfTe3McX4dvbiLjDc3/exec"; // ***這裡要換掉***
+    const API_URL = "https://script.google.com/macros/s/AKfycbylFcjL1lhcDPRLgCS8ChlsDHOQ273SyIsNDGe65mThL0vjafFfTe3McX4dvbiLjDc3/exec"; // ***請換成您的 GAS URL***
 
     function formatAmt(el) {
       let val = el.value.replace(/[^0-9]/g, '');
       document.getElementById('p_amt').value = val;
       el.value = val ? Number(val).toLocaleString() : '';
     }
+
     function checkCity() {
       const p = document.getElementById('v_prop').value;
       document.getElementById('v_city_box').className = p.includes('7C') ? '' : 'hidden';
     }
+
+    // 日期格式化工具：強制過濾掉 ISO 格式 (T, Z)
+    function formatDate(dateStr) {
+      if (!dateStr) return "";
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const mm = (d.getMonth() + 1).toString().padStart(2, '0');
+      const dd = d.getDate().toString().padStart(2, '0');
+      const hh = d.getHours().toString().padStart(2, '0');
+      const min = d.getMinutes().toString().padStart(2, '0');
+      return `${mm}/${dd} ${hh}:${min}`;
+    }
+
     async function api(action, data) {
       try {
         const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action, data }) });
         const json = await res.json();
         return json.data;
-      } catch (e) { alert("連線失敗"); return null; }
+      } catch (e) { return null; }
     }
+
     function render(rows, type) {
       const head = document.getElementById('hHead'), body = document.getElementById('hBody');
       head.innerHTML = type === 'project' ? "<th>日期</th><th>案號</th><th>客戶</th><th>金額</th><th>名稱</th>" : "<th>日期</th><th>品號</th><th>廠商</th><th>性質</th><th>品項</th>";
-      body.innerHTML = rows && rows.length > 0 ? rows.map(r => `<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td><td>${type==='project'?Number(r[3]).toLocaleString():r[3]}</td><td>${r[5]||''}</td></tr>`).join('') : "<tr><td colspan='5' style='text-align:center;'>目前尚無紀錄</td></tr>";
+      
+      if (!rows || rows.length === 0) {
+        body.innerHTML = "<tr><td colspan='5' style='text-align:center;'>目前尚無紀錄</td></tr>";
+        return;
+      }
+
+      body.innerHTML = rows.map(r => `
+        <tr>
+          <td>${formatDate(r[0])}</td>
+          <td><b>${r[1]}</b></td>
+          <td>${r[2]}</td>
+          <td>${type==='project' ? Number(r[3]).toLocaleString() : r[3]}</td>
+          <td>${r[5]||''}</td>
+        </tr>`).join('');
     }
+
     window.onload = async () => {
       const d = await api("getInitialData", {});
       if(d) {
@@ -89,6 +127,7 @@
         render(d.projectHistory, 'project');
       }
     };
+
     async function switchTab(t) {
       const isP = t === 'project';
       document.getElementById('project-form').className = isP ? '' : 'hidden';
@@ -96,59 +135,36 @@
       document.getElementById('tab-p').className = isP ? 'tab active' : 'tab';
       document.getElementById('tab-v').className = isP ? 'tab' : 'tab active';
       document.getElementById('hTitle').innerText = isP ? "最近明細紀錄 - 客戶專案" : "最近明細紀錄 - 廠商品號";
-      render(await api("getHistory", {type: t}), t);
+      const history = await api("getHistory", {type: t});
+      render(history, t);
     }
-   async function saveP() {
-  const btn = document.getElementById('btnP');
-  btn.disabled = true; // 防止重複點擊
-  
-  const data = { 
-    customerID: document.getElementById('p_search').value, 
-    amount: document.getElementById('p_amt').value, 
-    itemName: document.getElementById('p_item').value, 
-    isCaseD: document.getElementById('p_d').value 
-  };
-  
-  const id = await api("submitProject", data);
-  if (id) {
-    alert("案號產生成功：" + id);
-    // 關鍵修正：不重新整理網頁，直接更新下方表格
-    const history = await api("getHistory", { type: 'project' });
-    render(history, 'project');
-    // 清空輸入框以便下一筆輸入
-    document.getElementById('p_amt_show').value = "";
-    document.getElementById('p_item').value = "";
-    btn.disabled = false;
-  } else {
-    btn.disabled = false;
-  }
-}
 
-// 產生廠商品號後，留在原分頁並更新明細
-async function saveV() {
-  const btn = document.getElementById('btnV');
-  btn.disabled = true; // 防止重複點擊
-  
-  const data = { 
-    vendorID: document.getElementById('v_search').value, 
-    property: document.getElementById('v_prop').value, 
-    city: document.getElementById('v_city').value, 
-    itemName: document.getElementById('v_item').value 
-  };
-  
-  const id = await api("submitVendor", data);
-  if (id) {
-    alert("品號產生成功：" + id);
-    // 關鍵修正：留在「廠商」頁籤，僅更新下方表格
-    const history = await api("getHistory", { type: 'vendor' });
-    render(history, 'vendor');
-    // 清空輸入框
-    document.getElementById('v_item').value = "";
-    btn.disabled = false;
-  } else {
-    btn.disabled = false;
-  }
-}
+    async function saveP() {
+      const btn = document.getElementById('btnP'); btn.disabled = true;
+      const data = { customerID: document.getElementById('p_search').value, amount: document.getElementById('p_amt').value, itemName: document.getElementById('p_item').value, isCaseD: document.getElementById('p_d').value };
+      const id = await api("submitProject", data);
+      if(id) {
+        alert("案號產生成功：" + id);
+        const history = await api("getHistory", {type: 'project'});
+        render(history, 'project');
+        document.getElementById('p_item').value = "";
+        document.getElementById('p_amt_show').value = "";
+      }
+      btn.disabled = false;
+    }
+
+    async function saveV() {
+      const btn = document.getElementById('btnV'); btn.disabled = true;
+      const data = { vendorID: document.getElementById('v_search').value, property: document.getElementById('v_prop').value, city: document.getElementById('v_city').value, itemName: document.getElementById('v_item').value };
+      const id = await api("submitVendor", data);
+      if(id) {
+        alert("品號產生成功：" + id);
+        const history = await api("getHistory", {type: 'vendor'});
+        render(history, 'vendor');
+        document.getElementById('v_item').value = "";
+      }
+      btn.disabled = false;
+    }
   </script>
 </body>
 </html>
