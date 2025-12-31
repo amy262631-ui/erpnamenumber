@@ -8,33 +8,18 @@
     :root { --primary: #1a73e8; --bg: #f8f9fa; }
     body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; }
     .card { background: #fff; width: 100%; max-width: 550px; padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); margin-bottom: 30px; }
-    
-    /* 加大輸入區文字 */
     label { display: block; margin-top: 20px; font-weight: bold; font-size: 18px; color: #333; }
-    input, select { 
-      width: 100%; padding: 15px; margin-top: 8px; border: 2px solid #eee; border-radius: 10px; 
-      box-sizing: border-box; font-size: 20px; transition: border 0.3s;
-    }
-    input:focus { border-color: var(--primary); outline: none; }
-    
+    input, select { width: 100%; padding: 15px; margin-top: 8px; border: 2px solid #eee; border-radius: 10px; box-sizing: border-box; font-size: 20px; outline: none; }
+    input:focus { border-color: var(--primary); }
     .tabs { display: flex; border-bottom: 2px solid #eee; margin-bottom: 25px; }
     .tab { flex: 1; padding: 15px; text-align: center; cursor: pointer; color: #888; font-size: 18px; }
     .tab.active { color: var(--primary); border-bottom: 4px solid var(--primary); font-weight: bold; }
-    
-    .btn { 
-      width: 100%; background: var(--primary); color: white; border: none; padding: 18px; 
-      border-radius: 10px; margin-top: 30px; cursor: pointer; font-size: 20px; font-weight: bold; 
-    }
-    
-    /* 底部明細表樣式 */
+    .btn { width: 100%; background: var(--primary); color: white; border: none; padding: 18px; border-radius: 10px; margin-top: 30px; cursor: pointer; font-size: 20px; font-weight: bold; }
     .history-container { width: 100%; max-width: 1000px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow-x: auto; }
-    .history-container h3 { margin-top: 0; border-left: 5px solid var(--primary); padding-left: 10px; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 800px; }
     th { background: #f1f3f4; color: #5f6368; text-align: left; padding: 12px; font-size: 14px; }
     td { border-bottom: 1px solid #eee; padding: 12px; font-size: 15px; }
-    
     .hidden { display: none; }
-    #msg { padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; font-weight: bold; display: none; }
   </style>
 </head>
 <body>
@@ -45,23 +30,17 @@
       <div class="tab" id="tab-v" onclick="switchTab('vendor')">廠商品號系統</div>
     </div>
     
-    <div id="msg"></div>
-
     <div id="project-form">
       <label>搜尋客戶 (代號或名稱)</label>
       <input list="custList" id="p_search" placeholder="請輸入關鍵字...">
       <datalist id="custList"></datalist>
-      
       <label>金額 (自動會計格式)</label>
       <input type="text" id="p_amt_display" placeholder="請輸入金額" oninput="formatCurrency(this)">
       <input type="hidden" id="p_amt">
-      
       <label>合約名稱/備註</label>
       <input type="text" id="p_name" placeholder="例如: XX工程第一期">
-      
       <label>強制 D 案?</label>
       <select id="p_d"><option value="否">否</option><option value="是">是</option></select>
-      
       <button class="btn" onclick="saveProject()">產生案號並存檔</button>
     </div>
 
@@ -69,28 +48,20 @@
       <label>搜尋廠商 (代號或名稱)</label>
       <input list="vendList" id="v_search" placeholder="請輸入關鍵字...">
       <datalist id="vendList"></datalist>
-      
       <label>性質</label>
-      <select id="v_prop" onchange="toggleCityBox()">
-        <option>承攬(連工帶料)</option>
-        <option>工資</option>
-        <option>工案吊車費</option>
-        <option>工案運輸費</option>
+      <select id="v_prop" onchange="toggleCity()">
+        <option>承攬(連工帶料)</option><option>工資</option>
+        <option>7C1(吊車)</option><option>7C2(運輸)</option>
       </select>
-
       <div id="v_city_box" class="hidden">
         <label>縣市區域</label>
         <select id="v_city">
           <option value="">請選擇區域</option>
           <option>台北</option><option>桃園</option><option>新竹</option><option>台中</option><option>高雄</option>
-          <option>台南</option><option>苗栗</option><option>彰化</option><option>南投</option><option>雲林</option>
-          <option>嘉義</option><option>屏東</option><option>宜蘭</option><option>花蓮</option><option>台東</option><option>離島</option>
         </select>
       </div>
-      
       <label>備註/品項名稱</label>
       <input type="text" id="v_name" placeholder="例如: 紘展-工程工資">
-      
       <button class="btn" onclick="saveVendor()">產生品號並存檔</button>
     </div>
   </div>
@@ -109,26 +80,12 @@
     function formatCurrency(el) {
       let val = el.value.replace(/[^0-9]/g, "");
       document.getElementById('p_amt').value = val;
-      el.value = val ? Number(val).toLocaleString('en-US') : "";
+      el.value = val ? Number(val).toLocaleString() : "";
     }
 
-    function toggleCityBox() {
+    function toggleCity() {
       const p = document.getElementById('v_prop').value;
-      document.getElementById('v_city_box').className = p.includes('吊車') || p.includes('運輸') ? '' : 'hidden';
-    }
-
-    window.onload = async () => {
-      const res = await callAPI("getInitialData", {});
-      if (res) {
-        fillList('custList', res.customers);
-        fillList('vendList', res.vendors);
-        renderTable(res.projectHistory, 'project');
-      }
-    };
-
-    function fillList(id, data) {
-      const el = document.getElementById(id);
-      el.innerHTML = data.map(item => `<option value="${item.id}">${item.name}</option>`).join('');
+      document.getElementById('v_city_box').className = p.includes('7C') ? '' : 'hidden';
     }
 
     async function callAPI(action, data) {
@@ -136,15 +93,24 @@
         const response = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action, data }) });
         const json = await response.json();
         return json.status === "success" ? json.data : null;
-      } catch (e) { alert("連線失敗"); return null; }
+      } catch (e) { return null; }
     }
 
     function renderTable(rows, type) {
       const head = document.getElementById('tableHeader');
       const body = document.getElementById('tableBody');
       head.innerHTML = type === 'project' ? "<th>日期</th><th>案號</th><th>客戶代號</th><th>合約金額</th><th>專案名稱</th>" : "<th>日期</th><th>品號</th><th>廠商代號</th><th>性質</th><th>品項名稱</th>";
-      body.innerHTML = rows && rows.length > 0 ? rows.map(r => `<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td><td>${type==='project'?Number(r[3]).toLocaleString():r[3]}</td><td>${r[5]||''}</td></tr>`).join('') : "<tr><td colspan='5' style='text-align:center;'>尚未有紀錄</td></tr>";
+      body.innerHTML = (rows && rows.length > 0) ? rows.map(r => `<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td><td>${type==='project'?Number(r[3]).toLocaleString():r[3]}</td><td>${r[5]||''}</td></tr>`).join('') : "<tr><td colspan='5' style='text-align:center;'>尚未有紀錄</td></tr>";
     }
+
+    window.onload = async () => {
+      const res = await callAPI("getInitialData", {});
+      if (res) {
+        res.customers.forEach(c => document.getElementById('custList').innerHTML += `<option value="${c.id}">${c.name}</option>`);
+        res.vendors.forEach(v => document.getElementById('vendList').innerHTML += `<option value="${v.id}">${v.name}</option>`);
+        renderTable(res.projectHistory, 'project');
+      }
+    };
 
     async function switchTab(t) {
       const isP = t === 'project';
