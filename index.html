@@ -79,7 +79,51 @@
       <tbody id="tableBody"></tbody>
     </table>
   </div>
+// 將資料轉換為表格 HTML
+function renderTable(rows, type) {
+  const tableBody = document.getElementById('tableBody');
+  const tableHeader = document.getElementById('tableHeader');
+  tableBody.innerHTML = ""; // 清空舊內容
 
+  if (!rows || rows.length === 0) {
+    tableBody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>目前雲端尚無紀錄</td></tr>";
+    return;
+  }
+
+  // 設定標題
+  if (type === 'project') {
+    tableHeader.innerHTML = "<th>日期</th><th>案號</th><th>客戶代號</th><th>合約金額</th><th>專案名稱</th>";
+  } else {
+    tableHeader.innerHTML = "<th>日期</th><th>品號</th><th>廠商代號</th><th>性質</th><th>品項名稱</th>";
+  }
+
+  // 填入行資料
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    // 金額欄位 (如果是客戶案號，row[3] 是金額，加上逗點)
+    let amountStr = (type === 'project') ? Number(row[3]).toLocaleString() : row[3];
+    
+    tr.innerHTML = `
+      <td>${row[0]}</td>
+      <td style="font-weight:bold; color:#1a73e8;">${row[1]}</td>
+      <td>${row[2]}</td>
+      <td>${amountStr}</td>
+      <td>${row[5] || ''}</td>
+    `;
+    tableBody.appendChild(tr);
+  });
+}
+
+// 當切換頁籤時，重新向雲端讀取不同的歷史紀錄
+function switchTab(t) {
+  // ... 原有的頁籤切換 CSS 邏輯 ...
+  
+  // 向雲端抓取對應的歷史資料
+  fetchData("getHistory", { type: t }, (history) => {
+    renderTable(history, t);
+  });
+}
+  
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbylFcjL1lhcDPRLgCS8ChlsDHOQ273SyIsNDGe65mThL0vjafFfTe3McX4dvbiLjDc3/exec"; 
 
