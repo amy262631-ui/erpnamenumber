@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>ERP 編碼系統 - 修正版</title>
+  <title>ERP 編碼系統 - 終極修正版</title>
   <style>
     :root { --primary: #1a73e8; --bg: #f8f9fa; --danger: #d93025; }
     body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; }
@@ -34,7 +34,7 @@
       <input list="custList" id="p_search" placeholder="打字搜尋..." onfocus="this.value=''">
       <datalist id="custList"></datalist>
       <label>金額</label>
-      <input type="text" id="p_amt_show" oninput="handleCurrency(this)" placeholder="請輸入金額">
+      <input type="text" id="p_amt_show" placeholder="請輸入金額">
       <input type="hidden" id="p_amt">
       <label>名稱/備註</label>
       <input type="text" id="p_item" placeholder="名稱">
@@ -78,20 +78,26 @@
     const API_URL = "https://script.google.com/macros/s/AKfycbylFcjL1lhcDPRLgCS8ChlsDHOQ273SyIsNDGe65mThL0vjafFfTe3McX4dvbiLjDc3/exec"; 
     let currentTab = 'project';
 
-    // *** 徹底解決金額跳動的核心修正 ***
-    function handleCurrency(el) {
-      // 1. 移除所有非數字內容 (包含逗點)
-      let num = el.value.replace(/\D/g, "");
-      // 2. 更新隱藏的純數字欄位 (API 用)
-      document.getElementById('p_amt').value = num;
-      // 3. 顯示格式化字串 (如果沒數字就顯示空字串)
-      if (num) {
-        // 使用 Intl.NumberFormat 確保大數值處理穩定
-        el.value = new Intl.NumberFormat('zh-TW').format(num);
-      } else {
-        el.value = "";
+    // *** 終極解決方案：不再邊打邊改，而是改用「失去焦點」才格式化 ***
+    const amtInp = document.getElementById('p_amt_show');
+    const amtHid = document.getElementById('p_amt');
+
+    amtInp.addEventListener('input', function(e) {
+      // 只要輸入，就即時把純數字存進隱藏欄位
+      amtHid.value = this.value.replace(/\D/g, '');
+    });
+
+    amtInp.addEventListener('blur', function() {
+      // 當滑鼠點開、游標離開時，才加上逗點顯示
+      if (amtHid.value) {
+        this.value = Number(amtHid.value).toLocaleString('zh-TW');
       }
-    }
+    });
+
+    amtInp.addEventListener('focus', function() {
+      // 當點擊輸入框準備打字時，還原成純數字，徹底避免逗點干擾
+      this.value = amtHid.value;
+    });
 
     function checkCity() {
       const p = document.getElementById('v_prop').value;
@@ -122,7 +128,7 @@
           <td>${fmtDate(r[0])}</td>
           <td><b>${r[1]}</b></td>
           <td>${r[2]}</td>
-          <td>${type==='project' ? new Intl.NumberFormat('zh-TW').format(r[3]) : r[3]}</td>
+          <td>${type==='project' ? Number(r[3]).toLocaleString() : r[3]}</td>
           <td>${r[5]||''}</td>
           <td><button class="btn-del" onclick="delRow('${r[1]}')">刪除</button></td>
         </tr>`).join('') : "<tr><td colspan='6' style='text-align:center;'>尚未有紀錄</td></tr>";
@@ -156,11 +162,9 @@
 
     async function saveP() {
       const btn = document.getElementById('btnP'); btn.disabled = true;
-      // 確保傳送的是隱藏欄位的純數字
-      const amtValue = document.getElementById('p_amt').value;
       const data = { 
         customerID: document.getElementById('p_search').value, 
-        amount: amtValue, 
+        amount: amtHid.value, 
         itemName: document.getElementById('p_item').value, 
         isCaseD: document.getElementById('p_d').value 
       };
@@ -169,8 +173,8 @@
         alert("案號產生成功：" + id);
         render(await api("getHistory", {type: 'project'}), 'project');
         document.getElementById('p_item').value = ""; 
-        document.getElementById('p_amt_show').value = "";
-        document.getElementById('p_amt').value = "";
+        amtInp.value = "";
+        amtHid.value = "";
       }
       btn.disabled = false;
     }
