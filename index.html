@@ -15,7 +15,7 @@
     .btn { width: 100%; background: var(--primary); color: white; border: none; padding: 18px; border-radius: 10px; margin-top: 30px; cursor: pointer; font-size: 20px; font-weight: bold; }
     .btn:disabled { background: #ccc; cursor: not-allowed; }
     
-    /* 增加刪除按鈕樣式 */
+    /* 增加：刪除按鈕樣式 */
     .btn-del { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; }
     .btn-del:hover { opacity: 0.8; }
 
@@ -38,7 +38,7 @@
       <input list="custList" id="p_search" placeholder="打字搜尋..." onfocus="this.value=''">
       <datalist id="custList"></datalist>
       <label>金額</label>
-      <input type="text" id="p_amt_show" oninput="formatAmt(this)" placeholder="請輸入金額">
+      <input type="text" id="p_amt_show" oninput="handleAmtInput(this)" placeholder="請輸入金額">
       <input type="hidden" id="p_amt">
       <label>名稱/備註</label>
       <input type="text" id="p_item" placeholder="名稱">
@@ -86,13 +86,17 @@
 
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbylFcjL1lhcDPRLgCS8ChlsDHOQ273SyIsNDGe65mThL0vjafFfTe3McX4dvbiLjDc3/exec"; 
-    let currentTab = 'project'; // 記錄目前所在頁籤
+    let currentTab = 'project';
 
-    function formatAmt(el) {
-      let val = el.value.replace(/[^0-9]/g, '');
-      document.getElementById('p_amt').value = val;
-      el.value = val ? Number(val).toLocaleString() : '';
+    // 增加：強化的金額輸入處理邏輯，確保顯示正確
+    function handleAmtInput(el) {
+      let rawVal = el.value.replace(/[^0-9]/g, ''); // 僅保留純數字
+      document.getElementById('p_amt').value = rawVal; // 同步到隱藏欄位
+      el.value = rawVal ? Number(rawVal).toLocaleString('en-US') : ''; // 格式化為會計逗點
     }
+
+    // 原有的金額格式化邏輯保留作為備援
+    function formatAmt(el) { handleAmtInput(el); }
 
     function checkCity() {
       const p = document.getElementById('v_prop').value;
@@ -114,7 +118,7 @@
       } catch (e) { return null; }
     }
 
-    // 增加：渲染表格時加入刪除按鈕
+    // 增加：渲染表格時加入「管理/刪除」按鈕欄位
     function render(rows, type) {
       currentTab = type;
       const head = document.getElementById('hHead'), body = document.getElementById('hBody');
@@ -130,12 +134,11 @@
         </tr>`).join('') : "<tr><td colspan='6' style='text-align:center;'>尚未有紀錄</td></tr>";
     }
 
-    // 增加：刪除功能的 API 呼叫
+    // 增加：刪除功能的客戶端邏輯
     async function delRow(code) {
       if (!confirm(`確定要刪除編號 ${code} 嗎？`)) return;
       const res = await api("deleteRow", { type: currentTab, code: code });
       alert(res || "刪除成功");
-      // 重新讀取當前分頁資料
       render(await api("getHistory", {type: currentTab}), currentTab);
     }
 
