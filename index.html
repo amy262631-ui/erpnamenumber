@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>ERP 編碼系統</title>
   <style>
-    :root { --primary: #1a73e8; --bg: #f8f9fa; }
+    :root { --primary: #1a73e8; --bg: #f8f9fa; --danger: #d93025; }
     body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; }
     .card { background: #fff; width: 100%; max-width: 550px; padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); margin-bottom: 30px; }
     label { display: block; margin-top: 20px; font-weight: bold; font-size: 18px; color: #333; }
@@ -14,6 +14,11 @@
     .tab.active { color: var(--primary); border-bottom: 4px solid var(--primary); font-weight: bold; }
     .btn { width: 100%; background: var(--primary); color: white; border: none; padding: 18px; border-radius: 10px; margin-top: 30px; cursor: pointer; font-size: 20px; font-weight: bold; }
     .btn:disabled { background: #ccc; cursor: not-allowed; }
+    
+    /* 增加刪除按鈕樣式 */
+    .btn-del { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; }
+    .btn-del:hover { opacity: 0.8; }
+
     .history-container { width: 100%; max-width: 1000px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 800px; }
     th { background: #f1f3f4; color: #5f6368; text-align: left; padding: 12px; font-size: 14px; }
@@ -30,7 +35,7 @@
     
     <div id="project-form">
       <label>搜尋客戶</label>
-      <input list="custList" id="p_search" placeholder="打字搜尋...">
+      <input list="custList" id="p_search" placeholder="打字搜尋..." onfocus="this.value=''">
       <datalist id="custList"></datalist>
       <label>金額</label>
       <input type="text" id="p_amt_show" oninput="formatAmt(this)" placeholder="請輸入金額">
@@ -44,7 +49,7 @@
 
     <div id="vendor-form" class="hidden">
       <label>搜尋廠商</label>
-      <input list="vendList" id="v_search" placeholder="打字搜尋...">
+      <input list="vendList" id="v_search" placeholder="打字搜尋..." onfocus="this.value=''">
       <datalist id="vendList"></datalist>
       <label>性質</label>
       <select id="v_prop" onchange="checkCity()">
@@ -80,7 +85,8 @@
   </div>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbylFcjL1lhcDPRLgCS8ChlsDHOQ273SyIsNDGe65mThL0vjafFfTe3McX4dvbiLjDc3/exec"; // ***請換成您的 GAS URL***
+    const API_URL = "https://script.google.com/macros/s/AKfycbylFcjL1lhcDPRLgCS8ChlsDHOQ273SyIsNDGe65mThL0vjafFfTe3McX4dvbiLjDc3/exec"; 
+    let currentTab = 'project'; // 記錄目前所在頁籤
 
     function formatAmt(el) {
       let val = el.value.replace(/[^0-9]/g, '');
@@ -108,10 +114,29 @@
       } catch (e) { return null; }
     }
 
+    // 增加：渲染表格時加入刪除按鈕
     function render(rows, type) {
+      currentTab = type;
       const head = document.getElementById('hHead'), body = document.getElementById('hBody');
-      head.innerHTML = type === 'project' ? "<th>日期</th><th>案號</th><th>客戶</th><th>金額</th><th>名稱</th>" : "<th>日期</th><th>品號</th><th>廠商</th><th>性質</th><th>品項</th>";
-      body.innerHTML = rows && rows.length > 0 ? rows.map(r => `<tr><td>${fmtDate(r[0])}</td><td><b>${r[1]}</b></td><td>${r[2]}</td><td>${type==='project'?Number(r[3]).toLocaleString():r[3]}</td><td>${r[5]||''}</td></tr>`).join('') : "<tr><td colspan='5' style='text-align:center;'>尚未有紀錄</td></tr>";
+      head.innerHTML = type === 'project' ? "<th>日期</th><th>案號</th><th>客戶</th><th>金額</th><th>名稱</th><th>管理</th>" : "<th>日期</th><th>品號</th><th>廠商</th><th>性質</th><th>品項</th><th>管理</th>";
+      body.innerHTML = rows && rows.length > 0 ? rows.map(r => `
+        <tr>
+          <td>${fmtDate(r[0])}</td>
+          <td><b>${r[1]}</b></td>
+          <td>${r[2]}</td>
+          <td>${type==='project'?Number(r[3]).toLocaleString():r[3]}</td>
+          <td>${r[5]||''}</td>
+          <td><button class="btn-del" onclick="delRow('${r[1]}')">刪除</button></td>
+        </tr>`).join('') : "<tr><td colspan='6' style='text-align:center;'>尚未有紀錄</td></tr>";
+    }
+
+    // 增加：刪除功能的 API 呼叫
+    async function delRow(code) {
+      if (!confirm(`確定要刪除編號 ${code} 嗎？`)) return;
+      const res = await api("deleteRow", { type: currentTab, code: code });
+      alert(res || "刪除成功");
+      // 重新讀取當前分頁資料
+      render(await api("getHistory", {type: currentTab}), currentTab);
     }
 
     window.onload = async () => {
