@@ -24,8 +24,20 @@
     
     .history-container { width: 100%; max-width: 1000px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 800px; }
-    th { background: #f1f3f4; color: #5f6368; text-align: left; padding: 12px; font-size: 14px; }
-    td { border-bottom: 1px solid #eee; padding: 12px; font-size: 15px; }
+    th { background: #f1f3f4; color: #5f6368; text-align: left; padding: 12px; font-size: 14px; font-weight: bold; }
+    td { border-bottom: 1px solid #eee; padding: 12px; font-size: 15px; vertical-align: middle; }
+    td:nth-child(1) { width: 10%; } /* 日期 */
+    td:nth-child(2) { width: 15%; font-weight: bold; } /* 案號/品號 */
+    td:nth-child(3) { width: 10%; } /* 客戶/廠商 */
+    td:nth-child(4) { width: 12%; text-align: right; } /* 金額/性質 */
+    td:nth-child(5) { width: 38%; } /* 名稱/品項 */
+    td:nth-child(6) { width: 15%; text-align: center; } /* 管理按鈕 */
+    th:nth-child(1) { width: 10%; }
+    th:nth-child(2) { width: 15%; }
+    th:nth-child(3) { width: 10%; }
+    th:nth-child(4) { width: 12%; }
+    th:nth-child(5) { width: 38%; }
+    th:nth-child(6) { width: 15%; text-align: center; }
     .hidden { display: none; }
     
     /* 載入動畫 */
@@ -154,7 +166,9 @@
     function render(rows, type) {
       currentTab = type;
       const head = document.getElementById('hHead'), body = document.getElementById('hBody');
-      head.innerHTML = type === 'project' ? "<th>日期</th><th>案號</th><th>客戶</th><th>金額</th><th>名稱</th><th>管理</th>" : "<th>日期</th><th>品號</th><th>廠商</th><th>性質</th><th>品項</th><th>管理</th>";
+      head.innerHTML = type === 'project' 
+        ? "<th>日期</th><th>案號</th><th>客戶</th><th>金額</th><th>名稱</th><th>管理</th>" 
+        : "<th>日期</th><th>品號</th><th>廠商</th><th>性質</th><th>品項</th><th>管理</th>";
       
       if (!rows || rows.length === 0) {
         body.innerHTML = "<tr><td colspan='6' style='text-align:center;'>尚未有紀錄</td></tr>";
@@ -169,16 +183,18 @@
         const tr = document.createElement('tr');
         const displayAmt = type === 'project' ? Number(r[3]).toLocaleString() : r[3];
         const itemName = r[5] || '';
+        const code = r[1];
+        const identifier = r[2]; // 客戶ID或廠商ID
         
         tr.innerHTML = `
           <td>${fmtDate(r[0])}</td>
-          <td><b>${r[1]}</b></td>
-          <td>${r[2]}</td>
+          <td><b>${code}</b></td>
+          <td>${identifier}</td>
           <td>${displayAmt}</td>
           <td>${itemName}</td>
           <td>
-            <button class="btn-edit" onclick="editRow('${r[1]}', '${itemName.replace(/'/g, "\\'")}', '${r[3]}')">編輯</button>
-            <button class="btn-del" onclick="delRow('${r[1]}')">刪除</button>
+            <button class="btn-edit" onclick="editRow('${code}', '${itemName.replace(/'/g, "\\'")}', '${r[3]}')">編輯</button>
+            <button class="btn-del" onclick="delRow('${code}')">刪除</button>
           </td>
         `;
         tbody.appendChild(tr);
