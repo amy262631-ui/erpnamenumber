@@ -2,40 +2,40 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>ERP 編碼系統 - 編輯功能優化版</title>
+  <title>ERP 編碼系統 - 完整修復版</title>
   <style>
     :root { --primary: #1a73e8; --bg: #f8f9fa; --danger: #d93025; --edit: #f4b400; }
     body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; }
     .card { background: #fff; width: 100%; max-width: 550px; padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); margin-bottom: 30px; }
     label { display: block; margin-top: 20px; font-weight: bold; font-size: 18px; color: #333; }
     input, select { width: 100%; padding: 15px; margin-top: 8px; border: 2px solid #eee; border-radius: 10px; box-sizing: border-box; font-size: 20px; outline: none; }
+    
+    /* 分頁樣式 */
     .tabs { display: flex; border-bottom: 2px solid #eee; margin-bottom: 25px; }
     .tab { flex: 1; padding: 15px; text-align: center; cursor: pointer; color: #888; font-size: 18px; transition: all 0.2s; }
     .tab.active { color: var(--primary); border-bottom: 4px solid var(--primary); font-weight: bold; }
-    .btn { width: 100%; background: var(--primary); color: white; border: none; padding: 18px; border-radius: 10px; margin-top: 30px; cursor: pointer; font-size: 20px; font-weight: bold; transition: background 0.2s; }
     
-    /* 核心修正：隱藏樣式 */
+    /* 重要：隱藏控制 */
     .hidden { display: none !important; }
     
-    /* 按鈕樣式 */
-    .btn-del { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; transition: background 0.2s; }
-    .btn-edit { background: var(--edit); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; margin-bottom: 5px; transition: background 0.2s; }
+    .btn { width: 100%; background: var(--primary); color: white; border: none; padding: 18px; border-radius: 10px; margin-top: 30px; cursor: pointer; font-size: 20px; font-weight: bold; }
+    .btn-del { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; margin-bottom: 5px; width: 60px; display: block; margin-left: auto; margin-right: auto; }
+    .btn-edit { background: var(--edit); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; margin-bottom: 5px; width: 60px; display: block; margin-left: auto; margin-right: auto; }
     
-    /* 表格對齊優化 */
+    /* 表格與欄位對齊 */
     .history-container { width: 100%; max-width: 1000px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 850px; table-layout: fixed; }
-    th, td { padding: 12px 8px; border-bottom: 1px solid #eee; text-align: left; word-wrap: break-word; overflow: hidden; }
-    th { background: #f8f9fa; color: #5f6368; font-size: 14px; font-weight: bold; }
+    th, td { padding: 12px 8px; border-bottom: 1px solid #eee; text-align: left; word-wrap: break-word; }
+    th { background: #f8f9fa; color: #5f6368; font-size: 14px; }
 
-    /* 欄位寬度百分比控制 */
+    /* 寬度百分比設定 */
     .col-date { width: 12%; }
-    .col-code { width: 18%; }
+    .col-code { width: 18%; font-weight: bold; }
     .col-id   { width: 10%; }
     .col-amt  { width: 13%; text-align: right; }
     .col-name { width: 37%; }
     .col-ctrl { width: 10%; text-align: center; }
 
-    .btn-edit, .btn-del { display: block; width: 60px; margin: 2px auto; }
     .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #f3f3f3; border-top: 2px solid var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-left: 10px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
@@ -49,7 +49,7 @@
     
     <div id="project-form">
       <label>搜尋客戶</label>
-      <input list="custList" id="p_search" placeholder="打字搜尋..." onfocus="this.value=''">
+      <input list="custList" id="p_search" placeholder="打字搜尋...">
       <datalist id="custList"></datalist>
       <label>金額</label>
       <input type="text" id="p_amt_show" placeholder="請輸入金額">
@@ -63,7 +63,7 @@
 
     <div id="vendor-form" class="hidden">
       <label>搜尋廠商</label>
-      <input list="vendList" id="v_search" placeholder="打字搜尋..." onfocus="this.value=''">
+      <input list="vendList" id="v_search" placeholder="打字搜尋...">
       <datalist id="vendList"></datalist>
       <label>性質</label>
       <select id="v_prop" onchange="checkCity()">
@@ -73,9 +73,9 @@
         <label>區域/縣市</label>
         <select id="v_city">
           <option value="">請選擇</option>
-          <optgroup label="北 (02)"><option>台北</option><option>桃園</option><option>新竹</option><option>台東</option><option>花蓮</option><option>宜蘭</option><option>基隆</option><option>離島</option></optgroup>
-          <optgroup label="中 (04)"><option>苗栗</option><option>台中</option><option>彰化</option><option>南投</option></optgroup>
-          <optgroup label="南 (07)"><option>雲林</option><option>嘉義</option><option>台南</option><option>高雄</option><option>屏東</option></optgroup>
+          <optgroup label="北 (02)"><option>台北</option><option>桃園</option><option>新竹</option></optgroup>
+          <optgroup label="中 (04)"><option>台中</option><option>彰化</option></optgroup>
+          <optgroup label="南 (07)"><option>嘉義</option><option>台南</option><option>高雄</option></optgroup>
         </select>
       </div>
       <label>品項/備註</label>
@@ -96,13 +96,12 @@
     const API_URL = "https://script.google.com/macros/s/AKfycbylFcjL1lhcDPRLgCS8ChlsDHOQ273SyIsNDGe65mThL0vjafFfTe3McX4dvbiLjDc3/exec"; 
     let currentTab = 'project';
     const cache = { project: null, vendor: null, lastUpdate: { project: 0, vendor: 0 } };
-    const CACHE_DURATION = 30000;
 
     const amtInp = document.getElementById('p_amt_show');
     const amtHid = document.getElementById('p_amt');
 
-    // 金額輸入格式化邏輯
-    amtInp.addEventListener('input', function(e) { amtHid.value = this.value.replace(/\D/g, ''); });
+    // 金額輸入格式化
+    amtInp.addEventListener('input', function() { amtHid.value = this.value.replace(/\D/g, ''); });
     amtInp.addEventListener('blur', function() { if (amtHid.value) this.value = Number(amtHid.value).toLocaleString('zh-TW'); });
     amtInp.addEventListener('focus', function() { this.value = amtHid.value; });
 
@@ -117,6 +116,7 @@
       return isNaN(d.getTime()) ? dStr : `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
     }
 
+    // API 通訊
     async function api(action, data) {
       try {
         const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action, data }) });
@@ -125,11 +125,35 @@
       } catch (e) { console.error('API Error:', e); return null; }
     }
 
+    // 關鍵修復：補齊編輯與刪除函數 (放置於全域範圍)
+    async function editRow(code, oldName, oldAmt) {
+      let newName = prompt(`修改 [${code}] 的名稱/品項：`, oldName);
+      if (newName === null) return;
+
+      let newAmt = oldAmt;
+      if (currentTab === 'project') {
+        let amtInput = prompt(`修改 [${code}] 的金額 (僅限數字)：`, oldAmt);
+        if (amtInput === null) return;
+        newAmt = amtInput.replace(/\D/g, '');
+      }
+
+      const res = await api("updateRow", { type: currentTab, code, newName, newAmt });
+      alert(res || "更新成功");
+      await loadHistory(currentTab, true);
+    }
+
+    async function delRow(code) {
+      if (!confirm(`確定要刪除編號 ${code} 嗎？`)) return;
+      const res = await api("deleteRow", { type: currentTab, code });
+      alert(res || "刪除成功");
+      await loadHistory(currentTab, true);
+    }
+
+    // 渲染表格
     function render(rows, type) {
       currentTab = type;
       const head = document.getElementById('hHead'), body = document.getElementById('hBody');
       
-      // 標題與 Class 對應
       head.innerHTML = type === 'project' 
         ? `<th class="col-date">日期</th><th class="col-code">案號</th><th class="col-id">客戶</th><th class="col-amt">金額</th><th class="col-name">名稱</th><th class="col-ctrl">管理</th>`
         : `<th class="col-date">日期</th><th class="col-code">品號</th><th class="col-id">廠商</th><th class="col-amt">性質</th><th class="col-name">品項</th><th class="col-ctrl">管理</th>`;
@@ -148,7 +172,7 @@
         
         tr.innerHTML = `
           <td class="col-date">${fmtDate(r[0])}</td>
-          <td class="col-code"><b>${code}</b></td>
+          <td class="col-code">${code}</td>
           <td class="col-id">${r[2]}</td>
           <td class="col-amt">${displayVal}</td>
           <td class="col-name">${itemName}</td>
@@ -164,40 +188,27 @@
     }
 
     async function loadHistory(type, forceRefresh = false) {
-      if (!forceRefresh && cache[type] && (Date.now() - cache.lastUpdate[type] < CACHE_DURATION)) {
-        render(cache[type], type);
-        return;
-      }
-      const data = await api("getHistory", {type: type});
-      if(data) {
-        cache[type] = data;
-        cache.lastUpdate[type] = Date.now();
-        render(data, type);
-      }
+      if (!forceRefresh && cache[type]) { render(cache[type], type); return; }
+      const data = await api("getHistory", {type});
+      if(data) { cache[type] = data; render(data, type); }
     }
 
     async function switchTab(t) {
       const isP = t === 'project';
-      // 切換表單顯示
       document.getElementById('project-form').classList.toggle('hidden', !isP);
       document.getElementById('vendor-form').classList.toggle('hidden', isP);
-      // 切換 Tab 樣式
       document.getElementById('tab-p').classList.toggle('active', isP);
       document.getElementById('tab-v').classList.toggle('active', !isP);
-      
       document.getElementById('hTitle').innerText = isP ? "最近明細紀錄 - 客戶專案" : "最近明細紀錄 - 廠商品號";
       await loadHistory(t);
     }
 
-    // 初始化與存檔函數 (保持原邏輯)
     window.onload = async () => {
       const d = await api("getInitialData", {});
       if(d) {
         const clist = document.getElementById('custList'), vlist = document.getElementById('vendList');
         d.customers.forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; clist.appendChild(o); });
         d.vendors.forEach(v => { const o = document.createElement('option'); o.value = v.id; o.textContent = v.name; vlist.appendChild(o); });
-        cache.project = d.projectHistory;
-        cache.lastUpdate.project = Date.now();
         render(d.projectHistory, 'project');
       }
     };
