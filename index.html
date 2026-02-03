@@ -23,21 +23,15 @@
     .btn-edit:hover { background: #e09600; }
     
     .history-container { width: 100%; max-width: 1000px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 800px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 800px; table-layout: fixed; }
     th { background: #f1f3f4; color: #5f6368; text-align: left; padding: 12px; font-size: 14px; font-weight: bold; }
-    td { border-bottom: 1px solid #eee; padding: 12px; font-size: 15px; vertical-align: middle; }
-    td:nth-child(1) { width: 10%; } /* 日期 */
-    td:nth-child(2) { width: 15%; font-weight: bold; } /* 案號/品號 */
-    td:nth-child(3) { width: 10%; } /* 客戶/廠商 */
-    td:nth-child(4) { width: 12%; text-align: right; } /* 金額/性質 */
-    td:nth-child(5) { width: 38%; } /* 名稱/品項 */
-    td:nth-child(6) { width: 15%; text-align: center; } /* 管理按鈕 */
-    th:nth-child(1) { width: 10%; }
-    th:nth-child(2) { width: 15%; }
-    th:nth-child(3) { width: 10%; }
-    th:nth-child(4) { width: 12%; }
-    th:nth-child(5) { width: 38%; }
-    th:nth-child(6) { width: 15%; text-align: center; }
+    td { border-bottom: 1px solid #eee; padding: 12px; font-size: 15px; vertical-align: middle; word-wrap: break-word; }
+    th:nth-child(1), td:nth-child(1) { width: 100px; } /* 日期 */
+    th:nth-child(2), td:nth-child(2) { width: 130px; font-weight: bold; } /* 案號/品號 */
+    th:nth-child(3), td:nth-child(3) { width: 80px; } /* 客戶/廠商 */
+    th:nth-child(4), td:nth-child(4) { width: 100px; text-align: right; } /* 金額/性質 */
+    th:nth-child(5), td:nth-child(5) { width: auto; min-width: 200px; } /* 名稱/品項 */
+    th:nth-child(6), td:nth-child(6) { width: 140px; text-align: center; } /* 管理按鈕 */
     .hidden { display: none; }
     
     /* 載入動畫 */
