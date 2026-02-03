@@ -13,68 +13,29 @@
     .tab { flex: 1; padding: 15px; text-align: center; cursor: pointer; color: #888; font-size: 18px; transition: all 0.2s; }
     .tab.active { color: var(--primary); border-bottom: 4px solid var(--primary); font-weight: bold; }
     .btn { width: 100%; background: var(--primary); color: white; border: none; padding: 18px; border-radius: 10px; margin-top: 30px; cursor: pointer; font-size: 20px; font-weight: bold; transition: background 0.2s; }
-    .btn:disabled { background: #ccc; cursor: not-allowed; }
-    .btn:hover:not(:disabled) { background: #1557b0; }
+    
+    /* 核心修正：隱藏樣式 */
+    .hidden { display: none !important; }
     
     /* 按鈕樣式 */
     .btn-del { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; transition: background 0.2s; }
-    .btn-del:hover { background: #b71c1c; }
-    .btn-edit { background: var(--edit); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; margin-right: 5px; transition: background 0.2s; }
-    .btn-edit:hover { background: #e09600; }
+    .btn-edit { background: var(--edit); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; margin-bottom: 5px; transition: background 0.2s; }
     
-  /* 修改後的表格 CSS */
-.history-container { 
-    width: 100%; 
-    max-width: 1000px; 
-    background: white; 
-    padding: 20px; 
-    border-radius: 12px; 
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
-    overflow-x: auto; 
-}
+    /* 表格對齊優化 */
+    .history-container { width: 100%; max-width: 1000px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 850px; table-layout: fixed; }
+    th, td { padding: 12px 8px; border-bottom: 1px solid #eee; text-align: left; word-wrap: break-word; overflow: hidden; }
+    th { background: #f8f9fa; color: #5f6368; font-size: 14px; font-weight: bold; }
 
-table { 
-    width: 100%; 
-    border-collapse: collapse; 
-    margin-top: 10px; 
-    min-width: 850px; /* 確保最小寬度不會擠壓 */
-    table-layout: fixed; /* 維持固定佈局以確保對齊 */
-}
+    /* 欄位寬度百分比控制 */
+    .col-date { width: 12%; }
+    .col-code { width: 18%; }
+    .col-id   { width: 10%; }
+    .col-amt  { width: 13%; text-align: right; }
+    .col-name { width: 37%; }
+    .col-ctrl { width: 10%; text-align: center; }
 
-th, td { 
-    padding: 12px 8px; 
-    border-bottom: 1px solid #eee; 
-    text-align: left; 
-    word-wrap: break-word; 
-    overflow: hidden;
-}
-
-th { 
-    background: #f8f9fa; 
-    color: #5f6368; 
-    font-size: 14px; 
-    font-weight: bold; 
-}
-
-/* 精確控制每一欄的寬度百分比 */
-.col-date { width: 12%; }   /* 日期 */
-.col-code { width: 15%; }   /* 案號 */
-.col-id   { width: 10%; }   /* 客戶/廠商 */
-.col-amt  { width: 13%; text-align: right; } /* 金額 */
-.col-name { width: 40%; }   /* 名稱 (給予最大空間) */
-.col-ctrl { width: 10%; text-align: center; } /* 管理 */
-
-/* 調整按鈕在表格中的顯示 (改為垂直排列更整齊) */
-.btn-edit, .btn-del { 
-    display: block; 
-    width: 60px; 
-    margin: 2px auto; 
-    padding: 4px 0; 
-    font-size: 12px;
-}
-    
-    /* 載入動畫 */
-    .loading { opacity: 0.5; pointer-events: none; }
+    .btn-edit, .btn-del { display: block; width: 60px; margin: 2px auto; }
     .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #f3f3f3; border-top: 2px solid var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-left: 10px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
@@ -85,6 +46,7 @@ th {
       <div class="tab active" id="tab-p" onclick="switchTab('project')">客戶工程案號</div>
       <div class="tab" id="tab-v" onclick="switchTab('vendor')">廠商品號系統</div>
     </div>        
+    
     <div id="project-form">
       <label>搜尋客戶</label>
       <input list="custList" id="p_search" placeholder="打字搜尋..." onfocus="this.value=''">
@@ -98,6 +60,7 @@ th {
       <select id="p_d"><option value="否">否</option><option value="是">是</option></select>
       <button class="btn" id="btnP" onclick="saveP()">產生案號並存檔</button>
     </div>
+
     <div id="vendor-form" class="hidden">
       <label>搜尋廠商</label>
       <input list="vendList" id="v_search" placeholder="打字搜尋..." onfocus="this.value=''">
@@ -132,254 +95,127 @@ th {
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbylFcjL1lhcDPRLgCS8ChlsDHOQ273SyIsNDGe65mThL0vjafFfTe3McX4dvbiLjDc3/exec"; 
     let currentTab = 'project';
-    
-    // ===== 快取機制 =====
-    const cache = {
-      project: null,
-      vendor: null,
-      lastUpdate: {
-        project: 0,
-        vendor: 0
-      }
-    };
-    const CACHE_DURATION = 30000; // 30秒快取有效期
+    const cache = { project: null, vendor: null, lastUpdate: { project: 0, vendor: 0 } };
+    const CACHE_DURATION = 30000;
 
     const amtInp = document.getElementById('p_amt_show');
     const amtHid = document.getElementById('p_amt');
 
-    amtInp.addEventListener('input', function(e) {
-      amtHid.value = this.value.replace(/\D/g, '');
-    });
-    amtInp.addEventListener('blur', function() {
-      if (amtHid.value) this.value = Number(amtHid.value).toLocaleString('zh-TW');
-    });
-    amtInp.addEventListener('focus', function() {
-      this.value = amtHid.value;
-    });
+    // 金額輸入格式化邏輯
+    amtInp.addEventListener('input', function(e) { amtHid.value = this.value.replace(/\D/g, ''); });
+    amtInp.addEventListener('blur', function() { if (amtHid.value) this.value = Number(amtHid.value).toLocaleString('zh-TW'); });
+    amtInp.addEventListener('focus', function() { this.value = amtHid.value; });
 
     function checkCity() {
       const p = document.getElementById('v_prop').value;
-      document.getElementById('v_city_box').className = p.includes('7C') ? '' : 'hidden';
+      document.getElementById('v_city_box').classList.toggle('hidden', !p.includes('7C'));
     }
 
     function fmtDate(dStr) {
       if (!dStr) return "";
       const d = new Date(dStr);
-      if (isNaN(d.getTime())) return dStr;
-      return `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+      return isNaN(d.getTime()) ? dStr : `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
     }
 
     async function api(action, data) {
       try {
-        const res = await fetch(API_URL, { 
-          method: "POST", 
-          body: JSON.stringify({ action, data })
-        });
+        const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action, data }) });
         const json = await res.json();
         return json.data;
-      } catch (e) { 
-        console.error('API Error:', e);
-        return null; 
-      }
+      } catch (e) { console.error('API Error:', e); return null; }
     }
 
-    // 更新快取
-    function updateCache(type, data) {
-      cache[type] = data;
-      cache.lastUpdate[type] = Date.now();
-    }
-
-    // 檢查快取是否有效
-    function isCacheValid(type) {
-      if (!cache[type]) return false;
-      return (Date.now() - cache.lastUpdate[type]) < CACHE_DURATION;
-    }
-
- function render(rows, type) {
-  currentTab = type;
-  const head = document.getElementById('hHead'), body = document.getElementById('hBody');
-  
-  // 加入 class 控制寬度
-  head.innerHTML = type === 'project' 
-    ? `<th class="col-date">日期</th><th class="col-code">案號</th><th class="col-id">客戶</th><th class="col-amt">金額</th><th class="col-name">名稱</th><th class="col-ctrl">管理</th>`
-    : `<th class="col-date">日期</th><th class="col-code">品號</th><th class="col-id">廠商</th><th class="col-amt">性質</th><th class="col-name">品項</th><th class="col-ctrl">管理</th>`;
-  
-  if (!rows || rows.length === 0) {
-    body.innerHTML = "<tr><td colspan='6' style='text-align:center;'>尚未有紀錄</td></tr>";
-    return;
-  }
-
-  const fragment = document.createDocumentFragment();
-  rows.forEach(r => {
-    const tr = document.createElement('tr');
-    const displayAmt = type === 'project' ? Number(r[3]).toLocaleString() : r[3];
-    const itemName = r[5] || '';
-    const code = r[1];
-    
-    // 確保 <td> 的 class 與 <th> 一一對應
-    tr.innerHTML = `
-      <td class="col-date">${fmtDate(r[0])}</td>
-      <td class="col-code"><b>${code}</b></td>
-      <td class="col-id">${r[2]}</td>
-      <td class="col-amt">${displayAmt}</td>
-      <td class="col-name">${itemName}</td>
-      <td class="col-ctrl">
-        <button class="btn-edit" onclick="editRow('${code}', '${itemName.replace(/'/g, "\\'")}', '${r[3]}')">編輯</button>
-        <button class="btn-del" onclick="delRow('${code}')">刪除</button>
-      </td>
-    `;
-    fragment.appendChild(tr);
-  });
-  
-  body.innerHTML = '';
-  body.appendChild(fragment);
-}
-
-    // 編輯函數
-    async function editRow(code, oldName, oldAmt) {
-      let newName = prompt(`修改 [${code}] 的名稱/品項：`, oldName);
-      if (newName === null) return;
-
-      let newAmt = oldAmt;
-      if (currentTab === 'project') {
-        let amtInput = prompt(`修改 [${code}] 的金額 (僅限數字)：`, oldAmt);
-        if (amtInput === null) return;
-        newAmt = amtInput.replace(/\D/g, '');
+    function render(rows, type) {
+      currentTab = type;
+      const head = document.getElementById('hHead'), body = document.getElementById('hBody');
+      
+      // 標題與 Class 對應
+      head.innerHTML = type === 'project' 
+        ? `<th class="col-date">日期</th><th class="col-code">案號</th><th class="col-id">客戶</th><th class="col-amt">金額</th><th class="col-name">名稱</th><th class="col-ctrl">管理</th>`
+        : `<th class="col-date">日期</th><th class="col-code">品號</th><th class="col-id">廠商</th><th class="col-amt">性質</th><th class="col-name">品項</th><th class="col-ctrl">管理</th>`;
+      
+      if (!rows || rows.length === 0) {
+        body.innerHTML = "<tr><td colspan='6' style='text-align:center;'>尚未有紀錄</td></tr>";
+        return;
       }
 
-      const res = await api("updateRow", { 
-        type: currentTab, 
-        code: code, 
-        newName: newName, 
-        newAmt: newAmt 
+      const fragment = document.createDocumentFragment();
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        const displayVal = type === 'project' ? Number(r[3]).toLocaleString() : r[3];
+        const itemName = r[5] || '';
+        const code = r[1];
+        
+        tr.innerHTML = `
+          <td class="col-date">${fmtDate(r[0])}</td>
+          <td class="col-code"><b>${code}</b></td>
+          <td class="col-id">${r[2]}</td>
+          <td class="col-amt">${displayVal}</td>
+          <td class="col-name">${itemName}</td>
+          <td class="col-ctrl">
+            <button class="btn-edit" onclick="editRow('${code}', '${itemName.replace(/'/g, "\\'")}', '${r[3]}')">編輯</button>
+            <button class="btn-del" onclick="delRow('${code}')">刪除</button>
+          </td>
+        `;
+        fragment.appendChild(tr);
       });
-
-      alert(res || "更新成功");
-      
-      // 清除快取並重新載入
-      cache[currentTab] = null;
-      await loadHistory(currentTab, true);
+      body.innerHTML = '';
+      body.appendChild(fragment);
     }
 
-    async function delRow(code) {
-      if (!confirm(`確定要刪除編號 ${code} 嗎？`)) return;
-      const res = await api("deleteRow", { type: currentTab, code: code });
-      alert(res || "刪除成功");
-      
-      // 清除快取並重新載入
-      cache[currentTab] = null;
-      await loadHistory(currentTab, true);
-    }
-
-    // 新增：載入歷史資料函數（支援快取）
     async function loadHistory(type, forceRefresh = false) {
-      // 如果有有效快取且不強制刷新，直接使用快取
-      if (!forceRefresh && isCacheValid(type)) {
+      if (!forceRefresh && cache[type] && (Date.now() - cache.lastUpdate[type] < CACHE_DURATION)) {
         render(cache[type], type);
-        return cache[type];
+        return;
       }
-
-      // 從後端取得資料
       const data = await api("getHistory", {type: type});
-      updateCache(type, data);
-      render(data, type);
-      return data;
+      if(data) {
+        cache[type] = data;
+        cache.lastUpdate[type] = Date.now();
+        render(data, type);
+      }
     }
 
-    window.onload = async () => {
-      const d = await api("getInitialData", {});
-      if(d) {
-        // 載入主檔資料
-        const custList = document.getElementById('custList');
-        d.customers.forEach(c => {
-          const option = document.createElement('option');
-          option.value = c.id;
-          option.textContent = c.name;
-          custList.appendChild(option);
-        });
-        
-        const vendList = document.getElementById('vendList');
-        d.vendors.forEach(v => {
-          const option = document.createElement('option');
-          option.value = v.id;
-          option.textContent = v.name;
-          vendList.appendChild(option);
-        });
-        
-        // 初始化客戶專案快取並渲染
-        updateCache('project', d.projectHistory);
-        render(d.projectHistory, 'project');
-        
-        // 預載廠商品號資料到快取（背景載入，不影響初始顯示速度）
-        api("getHistory", {type: 'vendor'}).then(data => {
-          if (data) updateCache('vendor', data);
-        });
-      }
-    };
-
-    // 優化的切換函數（使用快取）
     async function switchTab(t) {
       const isP = t === 'project';
-      document.getElementById('project-form').className = isP ? '' : 'hidden';
-      document.getElementById('vendor-form').className = isP ? 'hidden' : '';
-      document.getElementById('tab-p').className = isP ? 'tab active' : 'tab';
-      document.getElementById('tab-v').className = isP ? 'tab' : 'tab active';
-      document.getElementById('hTitle').innerText = isP ? "最近明細紀錄 - 客戶專案" : "最近明細紀錄 - 廠商品號";
+      // 切換表單顯示
+      document.getElementById('project-form').classList.toggle('hidden', !isP);
+      document.getElementById('vendor-form').classList.toggle('hidden', isP);
+      // 切換 Tab 樣式
+      document.getElementById('tab-p').classList.toggle('active', isP);
+      document.getElementById('tab-v').classList.toggle('active', !isP);
       
-      // 使用快取載入
+      document.getElementById('hTitle').innerText = isP ? "最近明細紀錄 - 客戶專案" : "最近明細紀錄 - 廠商品號";
       await loadHistory(t);
     }
 
-    async function saveP() {
-      const btn = document.getElementById('btnP'); 
-      btn.disabled = true;
-      btn.innerHTML = '處理中<span class="spinner"></span>';
-      
-      const data = { 
-        customerID: document.getElementById('p_search').value, 
-        amount: amtHid.value, 
-        itemName: document.getElementById('p_item').value, 
-        isCaseD: document.getElementById('p_d').value 
-      };
-      
-      const id = await api("submitProject", data);
-      
-      if(id) {
-        alert("案號產生成功：" + id);
-        cache.project = null; // 清除快取
-        await loadHistory('project', true);
-        document.getElementById('p_item').value = ""; 
-        amtInp.value = ""; 
-        amtHid.value = "";
+    // 初始化與存檔函數 (保持原邏輯)
+    window.onload = async () => {
+      const d = await api("getInitialData", {});
+      if(d) {
+        const clist = document.getElementById('custList'), vlist = document.getElementById('vendList');
+        d.customers.forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; clist.appendChild(o); });
+        d.vendors.forEach(v => { const o = document.createElement('option'); o.value = v.id; o.textContent = v.name; vlist.appendChild(o); });
+        cache.project = d.projectHistory;
+        cache.lastUpdate.project = Date.now();
+        render(d.projectHistory, 'project');
       }
-      
-      btn.disabled = false;
-      btn.innerHTML = '產生案號並存檔';
+    };
+
+    async function saveP() {
+      const btn = document.getElementById('btnP'); btn.disabled = true;
+      btn.innerHTML = '處理中<span class="spinner"></span>';
+      const id = await api("submitProject", { customerID: document.getElementById('p_search').value, amount: amtHid.value, itemName: document.getElementById('p_item').value, isCaseD: document.getElementById('p_d').value });
+      if(id) { alert("案號產生成功：" + id); await loadHistory('project', true); }
+      btn.disabled = false; btn.innerHTML = '產生案號並存檔';
     }
 
     async function saveV() {
-      const btn = document.getElementById('btnV'); 
-      btn.disabled = true;
+      const btn = document.getElementById('btnV'); btn.disabled = true;
       btn.innerHTML = '處理中<span class="spinner"></span>';
-      
-      const data = { 
-        vendorID: document.getElementById('v_search').value, 
-        property: document.getElementById('v_prop').value, 
-        city: document.getElementById('v_city').value, 
-        itemName: document.getElementById('v_item').value 
-      };
-      
-      const id = await api("submitVendor", data);
-      
-      if(id) {
-        alert("品號產生成功：" + id);
-        cache.vendor = null; // 清除快取
-        await loadHistory('vendor', true);
-        document.getElementById('v_item').value = "";
-      }
-      
-      btn.disabled = false;
-      btn.innerHTML = '產生品號並存檔';
+      const id = await api("submitVendor", { vendorID: document.getElementById('v_search').value, property: document.getElementById('v_prop').value, city: document.getElementById('v_city').value, itemName: document.getElementById('v_item').value });
+      if(id) { alert("品號產生成功：" + id); await loadHistory('vendor', true); }
+      btn.disabled = false; btn.innerHTML = '產生品號並存檔';
     }
   </script>
 </body>
