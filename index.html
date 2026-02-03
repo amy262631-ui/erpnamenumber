@@ -10,20 +10,28 @@
     label { display: block; margin-top: 20px; font-weight: bold; font-size: 18px; color: #333; }
     input, select { width: 100%; padding: 15px; margin-top: 8px; border: 2px solid #eee; border-radius: 10px; box-sizing: border-box; font-size: 20px; outline: none; }
     .tabs { display: flex; border-bottom: 2px solid #eee; margin-bottom: 25px; }
-    .tab { flex: 1; padding: 15px; text-align: center; cursor: pointer; color: #888; font-size: 18px; }
+    .tab { flex: 1; padding: 15px; text-align: center; cursor: pointer; color: #888; font-size: 18px; transition: all 0.2s; }
     .tab.active { color: var(--primary); border-bottom: 4px solid var(--primary); font-weight: bold; }
-    .btn { width: 100%; background: var(--primary); color: white; border: none; padding: 18px; border-radius: 10px; margin-top: 30px; cursor: pointer; font-size: 20px; font-weight: bold; }
+    .btn { width: 100%; background: var(--primary); color: white; border: none; padding: 18px; border-radius: 10px; margin-top: 30px; cursor: pointer; font-size: 20px; font-weight: bold; transition: background 0.2s; }
     .btn:disabled { background: #ccc; cursor: not-allowed; }
+    .btn:hover:not(:disabled) { background: #1557b0; }
     
     /* 按鈕樣式 */
-    .btn-del { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; }
-    .btn-edit { background: var(--edit); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; margin-right: 5px; }
+    .btn-del { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; transition: background 0.2s; }
+    .btn-del:hover { background: #b71c1c; }
+    .btn-edit { background: var(--edit); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; margin-right: 5px; transition: background 0.2s; }
+    .btn-edit:hover { background: #e09600; }
     
     .history-container { width: 100%; max-width: 1000px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 800px; }
     th { background: #f1f3f4; color: #5f6368; text-align: left; padding: 12px; font-size: 14px; }
     td { border-bottom: 1px solid #eee; padding: 12px; font-size: 15px; }
     .hidden { display: none; }
+    
+    /* 載入動畫 */
+    .loading { opacity: 0.5; pointer-events: none; }
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #f3f3f3; border-top: 2px solid var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-left: 10px; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
@@ -79,6 +87,17 @@
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbylFcjL1lhcDPRLgCS8ChlsDHOQ273SyIsNDGe65mThL0vjafFfTe3McX4dvbiLjDc3/exec"; 
     let currentTab = 'project';
+    
+    // ===== 快取機制 =====
+    const cache = {
+      project: null,
+      vendor: null,
+      lastUpdate: {
+        project: 0,
+        vendor: 0
+      }
+    };
+    const CACHE_DURATION = 30000; // 30秒快取有效期
 
     const amtInp = document.getElementById('p_amt_show');
     const amtHid = document.getElementById('p_amt');
@@ -107,46 +126,79 @@
 
     async function api(action, data) {
       try {
-        const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action, data }) });
+        const res = await fetch(API_URL, { 
+          method: "POST", 
+          body: JSON.stringify({ action, data }),
+          headers: { 'Content-Type': 'application/json' }
+        });
         const json = await res.json();
         return json.data;
-      } catch (e) { return null; }
+      } catch (e) { 
+        console.error('API Error:', e);
+        return null; 
+      }
     }
 
-    // 更新渲染函數，加入編輯按鈕
+    // 更新快取
+    function updateCache(type, data) {
+      cache[type] = data;
+      cache.lastUpdate[type] = Date.now();
+    }
+
+    // 檢查快取是否有效
+    function isCacheValid(type) {
+      if (!cache[type]) return false;
+      return (Date.now() - cache.lastUpdate[type]) < CACHE_DURATION;
+    }
+
+    // 優化的渲染函數
     function render(rows, type) {
       currentTab = type;
       const head = document.getElementById('hHead'), body = document.getElementById('hBody');
       head.innerHTML = type === 'project' ? "<th>日期</th><th>案號</th><th>客戶</th><th>金額</th><th>名稱</th><th>管理</th>" : "<th>日期</th><th>品號</th><th>廠商</th><th>性質</th><th>品項</th><th>管理</th>";
       
-      body.innerHTML = rows && rows.length > 0 ? rows.map(r => {
+      if (!rows || rows.length === 0) {
+        body.innerHTML = "<tr><td colspan='6' style='text-align:center;'>尚未有紀錄</td></tr>";
+        return;
+      }
+
+      // 使用 DocumentFragment 提升效能
+      const fragment = document.createDocumentFragment();
+      const tbody = document.createElement('tbody');
+      
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
         const displayAmt = type === 'project' ? Number(r[3]).toLocaleString() : r[3];
         const itemName = r[5] || '';
-        return `
-        <tr>
+        
+        tr.innerHTML = `
           <td>${fmtDate(r[0])}</td>
           <td><b>${r[1]}</b></td>
           <td>${r[2]}</td>
           <td>${displayAmt}</td>
           <td>${itemName}</td>
           <td>
-            <button class="btn-edit" onclick="editRow('${r[1]}', '${itemName}', '${r[3]}')">編輯</button>
+            <button class="btn-edit" onclick="editRow('${r[1]}', '${itemName.replace(/'/g, "\\'")}', '${r[3]}')">編輯</button>
             <button class="btn-del" onclick="delRow('${r[1]}')">刪除</button>
           </td>
-        </tr>`;
-      }).join('') : "<tr><td colspan='6' style='text-align:center;'>尚未有紀錄</td></tr>";
+        `;
+        tbody.appendChild(tr);
+      });
+      
+      body.innerHTML = '';
+      body.appendChild(tbody);
     }
 
-    // 新增編輯函數
+    // 編輯函數
     async function editRow(code, oldName, oldAmt) {
       let newName = prompt(`修改 [${code}] 的名稱/品項：`, oldName);
-      if (newName === null) return; // 使用者按取消
+      if (newName === null) return;
 
       let newAmt = oldAmt;
       if (currentTab === 'project') {
         let amtInput = prompt(`修改 [${code}] 的金額 (僅限數字)：`, oldAmt);
         if (amtInput === null) return;
-        newAmt = amtInput.replace(/\D/g, ''); // 確保存入的是純數字
+        newAmt = amtInput.replace(/\D/g, '');
       }
 
       const res = await api("updateRow", { 
@@ -157,25 +209,64 @@
       });
 
       alert(res || "更新成功");
-      render(await api("getHistory", {type: currentTab}), currentTab);
+      
+      // 清除快取並重新載入
+      cache[currentTab] = null;
+      await loadHistory(currentTab, true);
     }
 
     async function delRow(code) {
       if (!confirm(`確定要刪除編號 ${code} 嗎？`)) return;
       const res = await api("deleteRow", { type: currentTab, code: code });
       alert(res || "刪除成功");
-      render(await api("getHistory", {type: currentTab}), currentTab);
+      
+      // 清除快取並重新載入
+      cache[currentTab] = null;
+      await loadHistory(currentTab, true);
+    }
+
+    // 新增：載入歷史資料函數（支援快取）
+    async function loadHistory(type, forceRefresh = false) {
+      // 如果有有效快取且不強制刷新，直接使用快取
+      if (!forceRefresh && isCacheValid(type)) {
+        render(cache[type], type);
+        return cache[type];
+      }
+
+      // 從後端取得資料
+      const data = await api("getHistory", {type: type});
+      updateCache(type, data);
+      render(data, type);
+      return data;
     }
 
     window.onload = async () => {
       const d = await api("getInitialData", {});
       if(d) {
-        d.customers.forEach(c => document.getElementById('custList').innerHTML += `<option value="${c.id}">${c.name}</option>`);
-        d.vendors.forEach(v => document.getElementById('vendList').innerHTML += `<option value="${v.id}">${v.name}</option>`);
+        // 載入主檔資料
+        const custList = document.getElementById('custList');
+        d.customers.forEach(c => {
+          const option = document.createElement('option');
+          option.value = c.id;
+          option.textContent = c.name;
+          custList.appendChild(option);
+        });
+        
+        const vendList = document.getElementById('vendList');
+        d.vendors.forEach(v => {
+          const option = document.createElement('option');
+          option.value = v.id;
+          option.textContent = v.name;
+          vendList.appendChild(option);
+        });
+        
+        // 初始化快取並渲染
+        updateCache('project', d.projectHistory);
         render(d.projectHistory, 'project');
       }
     };
 
+    // 優化的切換函數（使用快取）
     async function switchTab(t) {
       const isP = t === 'project';
       document.getElementById('project-form').className = isP ? '' : 'hidden';
@@ -183,31 +274,61 @@
       document.getElementById('tab-p').className = isP ? 'tab active' : 'tab';
       document.getElementById('tab-v').className = isP ? 'tab' : 'tab active';
       document.getElementById('hTitle').innerText = isP ? "最近明細紀錄 - 客戶專案" : "最近明細紀錄 - 廠商品號";
-      render(await api("getHistory", {type: t}), t);
+      
+      // 使用快取載入
+      await loadHistory(t);
     }
 
     async function saveP() {
-      const btn = document.getElementById('btnP'); btn.disabled = true;
-      const data = { customerID: document.getElementById('p_search').value, amount: amtHid.value, itemName: document.getElementById('p_item').value, isCaseD: document.getElementById('p_d').value };
+      const btn = document.getElementById('btnP'); 
+      btn.disabled = true;
+      btn.innerHTML = '處理中<span class="spinner"></span>';
+      
+      const data = { 
+        customerID: document.getElementById('p_search').value, 
+        amount: amtHid.value, 
+        itemName: document.getElementById('p_item').value, 
+        isCaseD: document.getElementById('p_d').value 
+      };
+      
       const id = await api("submitProject", data);
+      
       if(id) {
         alert("案號產生成功：" + id);
-        render(await api("getHistory", {type: 'project'}), 'project');
-        document.getElementById('p_item').value = ""; amtInp.value = ""; amtHid.value = "";
+        cache.project = null; // 清除快取
+        await loadHistory('project', true);
+        document.getElementById('p_item').value = ""; 
+        amtInp.value = ""; 
+        amtHid.value = "";
       }
+      
       btn.disabled = false;
+      btn.innerHTML = '產生案號並存檔';
     }
 
     async function saveV() {
-      const btn = document.getElementById('btnV'); btn.disabled = true;
-      const data = { vendorID: document.getElementById('v_search').value, property: document.getElementById('v_prop').value, city: document.getElementById('v_city').value, itemName: document.getElementById('v_item').value };
+      const btn = document.getElementById('btnV'); 
+      btn.disabled = true;
+      btn.innerHTML = '處理中<span class="spinner"></span>';
+      
+      const data = { 
+        vendorID: document.getElementById('v_search').value, 
+        property: document.getElementById('v_prop').value, 
+        city: document.getElementById('v_city').value, 
+        itemName: document.getElementById('v_item').value 
+      };
+      
       const id = await api("submitVendor", data);
+      
       if(id) {
         alert("品號產生成功：" + id);
-        render(await api("getHistory", {type: 'vendor'}), 'vendor');
+        cache.vendor = null; // 清除快取
+        await loadHistory('vendor', true);
         document.getElementById('v_item').value = "";
       }
+      
       btn.disabled = false;
+      btn.innerHTML = '產生品號並存檔';
     }
   </script>
 </body>
