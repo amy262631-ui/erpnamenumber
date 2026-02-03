@@ -260,9 +260,14 @@
           vendList.appendChild(option);
         });
         
-        // 初始化快取並渲染
+        // 初始化客戶專案快取並渲染
         updateCache('project', d.projectHistory);
         render(d.projectHistory, 'project');
+        
+        // 預載廠商品號資料到快取（背景載入，不影響初始顯示速度）
+        api("getHistory", {type: 'vendor'}).then(data => {
+          if (data) updateCache('vendor', data);
+        });
       }
     };
 
