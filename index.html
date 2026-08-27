@@ -38,6 +38,12 @@
 
     .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #f3f3f3; border-top: 2px solid var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-left: 10px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    /* 金額列（含稅/未稅切換） */
+    .amt-row { display: flex; gap: 10px; align-items: stretch; }
+    .amt-row select { width: 110px; flex-shrink: 0; }
+    .amt-row input { flex: 1; }
+    .amt-note { margin-top: 8px; font-size: 15px; color: #1a73e8; font-weight: bold; min-height: 20px; }
   </style>
 </head>
 <body>
@@ -51,9 +57,18 @@
       <label>搜尋客戶</label>
       <input list="custList" id="p_search" placeholder="打字搜尋...">
       <datalist id="custList"></datalist>
+
       <label>金額</label>
-      <input type="text" id="p_amt_show" placeholder="請輸入金額">
+      <div class="amt-row">
+        <select id="p_tax_type" onchange="onTaxTypeChange()">
+          <option value="untaxed" selected>未稅</option>
+          <option value="taxed">含稅</option>
+        </select>
+        <input type="text" id="p_amt_show" placeholder="請輸入未稅金額">
+      </div>
+      <div class="amt-note" id="p_amt_note"></div>
       <input type="hidden" id="p_amt">
+
       <label>名稱/備註</label>
       <input type="text" id="p_item" placeholder="名稱">
       <label>強制 D 案?</label>
@@ -98,12 +113,45 @@
     const cache = { project: null, vendor: null, lastUpdate: { project: 0, vendor: 0 } };
 
     const amtInp = document.getElementById('p_amt_show');
-    const amtHid = document.getElementById('p_amt');
+    const amtHid = document.getElementById('p_amt'); // 永遠儲存「未稅」金額，供送出用
+    const taxTypeSel = document.getElementById('p_tax_type');
+    const amtNote = document.getElementById('p_amt_note');
+    const TAX_RATE = 1.05; // 稅率 5%
+
+    let rawAmt = ''; // 使用者實際輸入的數字（依目前選擇的稅別解讀）
+
+    // 依目前輸入與稅別，重新計算未稅金額並更新提示與隱藏欄位
+    function recalcAmt() {
+      if (!rawAmt) { amtHid.value = ''; amtNote.textContent = ''; return; }
+      const entered = Number(rawAmt);
+      let untaxed;
+      if (taxTypeSel.value === 'taxed') {
+        untaxed = Math.round(entered / TAX_RATE);
+        amtNote.textContent = `未稅金額：$${untaxed.toLocaleString('zh-TW')}（換算自含稅 $${entered.toLocaleString('zh-TW')}）`;
+      } else {
+        untaxed = entered;
+        amtNote.textContent = `未稅金額：$${untaxed.toLocaleString('zh-TW')}`;
+      }
+      amtHid.value = untaxed;
+    }
+
+    // 切換未稅/含稅時：更新提示文字、placeholder，並重新計算
+    function onTaxTypeChange() {
+      amtInp.placeholder = taxTypeSel.value === 'taxed' ? '請輸入含稅金額' : '請輸入未稅金額';
+      recalcAmt();
+      if (document.activeElement !== amtInp && rawAmt) {
+        amtInp.value = Number(rawAmt).toLocaleString('zh-TW');
+      }
+    }
 
     // 金額輸入格式化
-    amtInp.addEventListener('input', function() { amtHid.value = this.value.replace(/\D/g, ''); });
-    amtInp.addEventListener('blur', function() { if (amtHid.value) this.value = Number(amtHid.value).toLocaleString('zh-TW'); });
-    amtInp.addEventListener('focus', function() { this.value = amtHid.value; });
+    amtInp.addEventListener('input', function() {
+      rawAmt = this.value.replace(/\D/g, '');
+      this.value = rawAmt;
+      recalcAmt();
+    });
+    amtInp.addEventListener('blur', function() { if (rawAmt) this.value = Number(rawAmt).toLocaleString('zh-TW'); });
+    amtInp.addEventListener('focus', function() { this.value = rawAmt; });
 
     function checkCity() {
       const p = document.getElementById('v_prop').value;
@@ -132,7 +180,7 @@
 
       let newAmt = oldAmt;
       if (currentTab === 'project') {
-        let amtInput = prompt(`修改 [${code}] 的金額 (僅限數字)：`, oldAmt);
+        let amtInput = prompt(`修改 [${code}] 的未稅金額 (僅限數字)：`, oldAmt);
         if (amtInput === null) return;
         newAmt = amtInput.replace(/\D/g, '');
       }
@@ -155,7 +203,7 @@
       const head = document.getElementById('hHead'), body = document.getElementById('hBody');
       
       head.innerHTML = type === 'project' 
-        ? `<th class="col-date">日期</th><th class="col-code">案號</th><th class="col-id">客戶</th><th class="col-amt">金額</th><th class="col-name">名稱</th><th class="col-ctrl">管理</th>`
+        ? `<th class="col-date">日期</th><th class="col-code">案號</th><th class="col-id">客戶</th><th class="col-amt">未稅金額</th><th class="col-name">名稱</th><th class="col-ctrl">管理</th>`
         : `<th class="col-date">日期</th><th class="col-code">品號</th><th class="col-id">廠商</th><th class="col-amt">性質</th><th class="col-name">品項</th><th class="col-ctrl">管理</th>`;
       
       if (!rows || rows.length === 0) {
@@ -217,7 +265,10 @@
       const btn = document.getElementById('btnP'); btn.disabled = true;
       btn.innerHTML = '處理中<span class="spinner"></span>';
       const id = await api("submitProject", { customerID: document.getElementById('p_search').value, amount: amtHid.value, itemName: document.getElementById('p_item').value, isCaseD: document.getElementById('p_d').value });
-      if(id) { alert("案號產生成功：" + id); await loadHistory('project', true); }
+      if(id) {
+        alert("案號產生成功：" + id + "（未稅金額：$" + Number(amtHid.value).toLocaleString('zh-TW') + "）");
+        await loadHistory('project', true);
+      }
       btn.disabled = false; btn.innerHTML = '產生案號並存檔';
     }
 
