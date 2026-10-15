@@ -12,18 +12,22 @@
     
     /* 分頁樣式 */
     .tabs { display: flex; border-bottom: 2px solid #eee; margin-bottom: 25px; }
-    .tab { flex: 1; padding: 15px; text-align: center; cursor: pointer; color: #888; font-size: 18px; transition: all 0.2s; }
+    .tab { flex: 1; padding: 15px; text-align: center; cursor: pointer; color: #888; font-size: 18px; transition: all 0.2s; user-select: none; }
     .tab.active { color: var(--primary); border-bottom: 4px solid var(--primary); font-weight: bold; }
     
     /* 重要：隱藏控制 */
     .hidden { display: none !important; }
     
     .btn { width: 100%; background: var(--primary); color: white; border: none; padding: 18px; border-radius: 10px; margin-top: 30px; cursor: pointer; font-size: 20px; font-weight: bold; }
+    .btn:disabled { background: #9aa0a6; cursor: not-allowed; }
     .btn-del { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; margin-bottom: 5px; width: 60px; display: block; margin-left: auto; margin-right: auto; }
     .btn-edit { background: var(--edit); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; margin-bottom: 5px; width: 60px; display: block; margin-left: auto; margin-right: auto; }
     
     /* 表格與欄位對齊 */
     .history-container { width: 100%; max-width: 1000px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow-x: auto; }
+    .history-header { display: flex; justify-content: space-between; align-items: center; }
+    .btn-refresh { background: #f1f3f4; color: #3c4043; border: 1px solid #dadce0; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; }
+    .btn-refresh:hover { background: #e8eaed; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 850px; table-layout: fixed; }
     th, td { padding: 12px 8px; border-bottom: 1px solid #eee; text-align: left; word-wrap: break-word; }
     th { background: #f8f9fa; color: #5f6368; font-size: 14px; }
@@ -36,7 +40,9 @@
     .col-name { width: 37%; }
     .col-ctrl { width: 10%; text-align: center; }
 
-    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #f3f3f3; border-top: 2px solid var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-left: 10px; }
+    /* 轉圈圈動畫 */
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #f3f3f3; border-top: 2px solid var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-left: 10px; vertical-align: middle; }
+    .loading-row { text-align: center !important; color: #666; font-size: 16px; padding: 30px !important; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
     /* 金額列（含稅/未稅切換） */
@@ -51,11 +57,11 @@
     <div class="tabs">
       <div class="tab active" id="tab-p" onclick="switchTab('project')">客戶工程案號</div>
       <div class="tab" id="tab-v" onclick="switchTab('vendor')">廠商品號系統</div>
-    </div>        
-    
+    </div>
+            
     <div id="project-form">
       <label>搜尋客戶</label>
-      <input list="custList" id="p_search" placeholder="打字搜尋...">
+      <input list="custList" id="p_search" placeholder="打字搜尋代號或名稱...">
       <datalist id="custList"></datalist>
 
       <label>金額</label>
@@ -78,7 +84,7 @@
 
     <div id="vendor-form" class="hidden">
       <label>搜尋廠商</label>
-      <input list="vendList" id="v_search" placeholder="打字搜尋...">
+      <input list="vendList" id="v_search" placeholder="打字搜尋代號或名稱...">
       <datalist id="vendList"></datalist>
       <label>性質</label>
       <select id="v_prop" onchange="checkCity()">
@@ -100,7 +106,10 @@
   </div>
 
   <div class="history-container">
-    <h3 id="hTitle">最近明細紀錄 - 客戶專案</h3>
+    <div class="history-header">
+      <h3 id="hTitle">最近明細紀錄 - 客戶專案</h3>
+      <button class="btn-refresh" onclick="loadHistory(currentTab, true)">🔄 重新整理表格</button>
+    </div>
     <table>
       <thead><tr id="hHead"></tr></thead>
       <tbody id="hBody"></tbody>
@@ -108,19 +117,24 @@
   </div>
 
   <script>
+    // ====== 可調整參數區 ======
     const API_URL = "https://script.google.com/macros/s/AKfycbylFcjL1lhcDPRLgCS8ChlsDHOQ273SyIsNDGe65mThL0vjafFfTe3McX4dvbiLjDc3/exec"; 
+    const TIMEOUT_MS = 20000; // 連線逾時設定（20000 毫秒 = 20 秒）
+    const TAX_RATE = 1.05;    // 營業稅率 5%
+    // ==========================
+
     let currentTab = 'project';
-    const cache = { project: null, vendor: null, lastUpdate: { project: 0, vendor: 0 } };
+    // 快取物件：用來存放已經抓下來的客戶與廠商歷史紀錄，實現 0 秒瞬間切換
+    const cache = { project: null, vendor: null };
+    const customerMap = {};
+    const vendorMap = {};
 
     const amtInp = document.getElementById('p_amt_show');
-    const amtHid = document.getElementById('p_amt'); // 永遠儲存「未稅」金額，供送出用
+    const amtHid = document.getElementById('p_amt');
     const taxTypeSel = document.getElementById('p_tax_type');
     const amtNote = document.getElementById('p_amt_note');
-    const TAX_RATE = 1.05; // 稅率 5%
+    let rawAmt = '';
 
-    let rawAmt = ''; // 使用者實際輸入的數字（依目前選擇的稅別解讀）
-
-    // 依目前輸入與稅別，重新計算未稅金額並更新提示與隱藏欄位
     function recalcAmt() {
       if (!rawAmt) { amtHid.value = ''; amtNote.textContent = ''; return; }
       const entered = Number(rawAmt);
@@ -135,7 +149,6 @@
       amtHid.value = untaxed;
     }
 
-    // 切換未稅/含稅時：更新提示文字、placeholder，並重新計算
     function onTaxTypeChange() {
       amtInp.placeholder = taxTypeSel.value === 'taxed' ? '請輸入含稅金額' : '請輸入未稅金額';
       recalcAmt();
@@ -144,7 +157,6 @@
       }
     }
 
-    // 金額輸入格式化
     amtInp.addEventListener('input', function() {
       rawAmt = this.value.replace(/\D/g, '');
       this.value = rawAmt;
@@ -164,50 +176,66 @@
       return isNaN(d.getTime()) ? dStr : `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
     }
 
-    // API 通訊
-    async function api(action, data) {
+    // API 通訊函數
+    async function api(action, data, silent = false) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
       try {
-        const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action, data }) });
-        const json = await res.json();
-        return json.data;
-      } catch (e) { console.error('API Error:', e); return null; }
-    }
+        const res = await fetch(API_URL, { 
+          method: "POST", 
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action, data }),
+          signal: controller.signal
+        });
+        clearTimeout(timer);
 
-    // 關鍵修復：補齊編輯與刪除函數 (放置於全域範圍)
-    async function editRow(code, oldName, oldAmt) {
-      let newName = prompt(`修改 [${code}] 的名稱/品項：`, oldName);
-      if (newName === null) return;
-
-      let newAmt = oldAmt;
-      if (currentTab === 'project') {
-        let amtInput = prompt(`修改 [${code}] 的未稅金額 (僅限數字)：`, oldAmt);
-        if (amtInput === null) return;
-        newAmt = amtInput.replace(/\D/g, '');
+        const text = await res.text();
+        const json = JSON.parse(text);
+        if (json.error || json.status === 'error') {
+          if (!silent) alert("後端處理發生錯誤：" + (json.error || json.message || "未知錯誤"));
+          return null;
+        }
+        return json.data !== undefined ? json.data : json;
+      } catch (e) { 
+        clearTimeout(timer);
+        console.error('API Error:', e); 
+        if (!silent) {
+          if (e.name === 'AbortError') {
+            alert("⚠️ 連線逾時！請再試一次。");
+          } else {
+            alert("⚠️ 系統通訊發生異常：" + e.message);
+          }
+        }
+        return null; 
       }
-
-      const res = await api("updateRow", { type: currentTab, code, newName, newAmt });
-      alert(res || "更新成功");
-      await loadHistory(currentTab, true);
     }
 
-    async function delRow(code) {
-      if (!confirm(`確定要刪除編號 ${code} 嗎？`)) return;
-      const res = await api("deleteRow", { type: currentTab, code });
-      alert(res || "刪除成功");
-      await loadHistory(currentTab, true);
-    }
-
-    // 渲染表格
-    function render(rows, type) {
-      currentTab = type;
-      const head = document.getElementById('hHead'), body = document.getElementById('hBody');
-      
+    // ★ 新增：專門更新表格標題列 (th) 的函數，讓切換分頁時表頭立刻改變
+    function renderTableHeader(type) {
+      const head = document.getElementById('hHead');
       head.innerHTML = type === 'project' 
         ? `<th class="col-date">日期</th><th class="col-code">案號</th><th class="col-id">客戶</th><th class="col-amt">未稅金額</th><th class="col-name">名稱</th><th class="col-ctrl">管理</th>`
         : `<th class="col-date">日期</th><th class="col-code">品號</th><th class="col-id">廠商</th><th class="col-amt">性質</th><th class="col-name">品項</th><th class="col-ctrl">管理</th>`;
+    }
+
+    // ★ 新增：立即顯示「載入中」動畫，清除舊分頁殘留的資料
+    function showTableLoading(type) {
+      renderTableHeader(type);
+      const body = document.getElementById('hBody');
+      body.innerHTML = `<tr><td colspan="6" class="loading-row">⏳ 正在載入${type === 'project' ? '客戶專案' : '廠商品號'}紀錄，請稍候...<span class="spinner"></span></td></tr>`;
+    }
+
+    // 渲染表格內容
+    function render(rows, type) {
+      // 重要防護：如果網路比較慢，資料回來時使用者已經切去別的分頁了，就不要蓋掉目前的畫面
+      if (type !== currentTab) return;
+
+      renderTableHeader(type);
+      const body = document.getElementById('hBody');
       
       if (!rows || rows.length === 0) {
-        body.innerHTML = "<tr><td colspan='6' style='text-align:center;'>尚未有紀錄</td></tr>";
+        body.innerHTML = "<tr><td colspan='6' style='text-align:center; padding: 20px;'>尚未有紀錄</td></tr>";
         return;
       }
 
@@ -235,101 +263,187 @@
       body.appendChild(fragment);
     }
 
+    // ★ 優化：載入歷史紀錄邏輯
     async function loadHistory(type, forceRefresh = false) {
-      if (!forceRefresh && cache[type]) { render(cache[type], type); return; }
-      const data = await api("getHistory", {type});
-      if(data) { cache[type] = data; render(data, type); }
+      // 1. 如果快取裡面已經有資料，而且不是強制重新整理，就「0秒瞬間顯示」！
+      if (!forceRefresh && cache[type]) { 
+        render(cache[type], type); 
+        return; 
+      }
+      
+      // 2. 如果需要去後端抓資料，先立刻把舊表格清空並顯示「載入中...」，不會再停留在客戶資料
+      if (type === currentTab) {
+        showTableLoading(type);
+      }
+
+      const data = await api("getHistory", { type });
+      if (data) { 
+        cache[type] = data; // 存入快取
+        render(data, type); 
+      }
     }
 
+    // ★ 優化：切換分頁函數
     async function switchTab(t) {
+      currentTab = t; // 第一時間更新目前所在分頁狀態
       const isP = t === 'project';
       document.getElementById('project-form').classList.toggle('hidden', !isP);
       document.getElementById('vendor-form').classList.toggle('hidden', isP);
       document.getElementById('tab-p').classList.toggle('active', isP);
       document.getElementById('tab-v').classList.toggle('active', !isP);
       document.getElementById('hTitle').innerText = isP ? "最近明細紀錄 - 客戶專案" : "最近明細紀錄 - 廠商品號";
+      
       await loadHistory(t);
     }
 
-   // 1. 修改載入資料邏輯：讓選單同時包含「代號」與「名稱」，支援雙向打字搜尋
+    // ★ 優化：初始載入與「背景預載廠商紀錄」
     window.onload = async () => {
+      showTableLoading('project'); // 一進網頁先顯示讀取中
       const d = await api("getInitialData", {});
-      console.log("後端回傳的初始資料：", d); // 方便在 F12 控制台檢查資料是否有成功載入
-
       if (d) {
         const clist = document.getElementById('custList');
         const vlist = document.getElementById('vendList');
 
-        // 載入客戶名單 (加入防呆檢查)
         if (Array.isArray(d.customers)) {
-          d.customers.forEach(c => {
-            const o = document.createElement('option');
-            // 將 value 設為「代號 - 名稱」，打字時無論輸入代號或中文名稱都有反應
-            o.value = c.name ? `${c.id} - ${c.name}` : c.id;
+          d.customers.forEach(c => { 
+            const o = document.createElement('option'); 
+            o.value = c.name ? `${c.id} - ${c.name}` : c.id; 
             clist.appendChild(o);
+            customerMap[c.name] = c.id;
           });
         }
 
-        // 載入廠商名單 (加入防呆檢查)
         if (Array.isArray(d.vendors)) {
-          d.vendors.forEach(v => {
-            const o = document.createElement('option');
-            // 同樣設為「代號 - 名稱」
-            o.value = v.name ? `${v.id} - ${v.name}` : v.id;
+          d.vendors.forEach(v => { 
+            const o = document.createElement('option'); 
+            o.value = v.name ? `${v.id} - ${v.name}` : v.id; 
             vlist.appendChild(o);
+            vendorMap[v.name] = v.id;
           });
         }
 
-        render(d.projectHistory, 'project');
+        // 把初始抓到的客戶歷史紀錄存入快取，這樣切去廠商再切回客戶時也是 0 秒瞬間完成！
+        if (d.projectHistory) {
+          cache.project = d.projectHistory;
+          render(d.projectHistory, 'project');
+        }
+
+        // 如果後端也有一起給廠商歷史紀錄就直接存；沒有的話，我們立刻在背景偷偷抓起來放進快取！
+        if (d.vendorHistory) {
+          cache.vendor = d.vendorHistory;
+        } else {
+          api("getHistory", { type: 'vendor' }, true).then(vData => {
+            if (vData) {
+              cache.vendor = vData;
+              // 如果這時候使用者剛好已經點到廠商分頁在等了，就立刻幫他渲染出來
+              if (currentTab === 'vendor') render(vData, 'vendor');
+            }
+          });
+        }
       }
     };
 
-    // 2. 修改客戶存檔：送出時自動把「 - 名稱」切掉，只保留純代號傳給後端
+    async function editRow(code, oldName, oldAmt) {
+      let newName = prompt(`修改 [${code}] 的名稱/品項：`, oldName);
+      if (newName === null) return;
+
+      let newAmt = oldAmt;
+      if (currentTab === 'project') {
+        let amtInput = prompt(`修改 [${code}] 的未稅金額 (僅限數字)：`, oldAmt);
+        if (amtInput === null) return;
+        newAmt = amtInput.replace(/\D/g, '');
+      }
+
+      const res = await api("updateRow", { type: currentTab, code, newName, newAmt });
+      if (res !== null) {
+        alert(res || "更新成功");
+        await loadHistory(currentTab, true);
+      }
+    }
+
+    async function delRow(code) {
+      if (!confirm(`確定要刪除編號 ${code} 嗎？`)) return;
+      const res = await api("deleteRow", { type: currentTab, code });
+      if (res !== null) {
+        alert(res || "刪除成功");
+        await loadHistory(currentTab, true);
+      }
+    }
+
     async function saveP() {
+      const rawInput = document.getElementById('p_search').value.trim();
+      if (!rawInput) { alert("請先選擇或輸入客戶！"); return; }
+      if (!amtHid.value) { alert("請輸入金額！"); return; }
+
+      let cleanCustomerID = rawInput.split(' - ')[0].trim();
+      if (customerMap[cleanCustomerID]) cleanCustomerID = customerMap[cleanCustomerID];
+
       const btn = document.getElementById('btnP'); 
       btn.disabled = true;
       btn.innerHTML = '處理中<span class="spinner"></span>';
-      
-      // 透過 split(' - ')[0] 取出橫槓前面的純客戶代號
-      const rawCustomerID = document.getElementById('p_search').value.split(' - ')[0].trim();
 
-      const id = await api("submitProject", { 
-        customerID: rawCustomerID, 
-        amount: amtHid.value, 
-        itemName: document.getElementById('p_item').value, 
-        isCaseD: document.getElementById('p_d').value 
-      });
-      
-      if (id) {
-        alert("案號產生成功：" + id + "（未稅金額：$" + Number(amtHid.value).toLocaleString('zh-TW') + "）");
-        await loadHistory('project', true);
+      try {
+        const id = await api("submitProject", { 
+          customerID: cleanCustomerID, 
+          amount: amtHid.value, 
+          itemName: document.getElementById('p_item').value, 
+          isCaseD: document.getElementById('p_d').value 
+        });
+
+        if (id) {
+          alert("✅ 案號產生成功：" + id + "\n（未稅金額：$" + Number(amtHid.value).toLocaleString('zh-TW') + "）");
+          document.getElementById('p_search').value = '';
+          document.getElementById('p_amt_show').value = '';
+          document.getElementById('p_item').value = '';
+          rawAmt = ''; recalcAmt();
+          await loadHistory('project', true);
+        } else {
+          alert("❌ 案號產生失敗！請確認客戶代號 [" + cleanCustomerID + "] 是否正確。");
+        }
+      } finally {
+        btn.disabled = false; 
+        btn.innerHTML = '產生案號並存檔';
       }
-      btn.disabled = false; 
-      btn.innerHTML = '產生案號並存檔';
     }
 
-    // 3. 修改廠商存檔：送出時自動把「 - 名稱」切掉，只保留純代號傳給後端
     async function saveV() {
+      const rawInput = document.getElementById('v_search').value.trim();
+      if (!rawInput) { alert("請先選擇或輸入廠商！"); return; }
+
+      const prop = document.getElementById('v_prop').value;
+      const city = document.getElementById('v_city').value;
+      if (prop.includes('7C') && !city) {
+        alert("選擇 7C1 或 7C2 時，請選擇「區域/縣市」！");
+        return;
+      }
+
+      let cleanVendorID = rawInput.split(' - ')[0].trim();
+      if (vendorMap[cleanVendorID]) cleanVendorID = vendorMap[cleanVendorID];
+
       const btn = document.getElementById('btnV'); 
       btn.disabled = true;
       btn.innerHTML = '處理中<span class="spinner"></span>';
 
-      // 透過 split(' - ')[0] 取出橫槓前面的純廠商代號
-      const rawVendorID = document.getElementById('v_search').value.split(' - ')[0].trim();
+      try {
+        const id = await api("submitVendor", { 
+          vendorID: cleanVendorID, 
+          property: prop, 
+          city: city, 
+          itemName: document.getElementById('v_item').value 
+        });
 
-      const id = await api("submitVendor", { 
-        vendorID: rawVendorID, 
-        property: document.getElementById('v_prop').value, 
-        city: document.getElementById('v_city').value, 
-        itemName: document.getElementById('v_item').value 
-      });
-      
-      if (id) { 
-        alert("品號產生成功：" + id); 
-        await loadHistory('vendor', true); 
+        if (id) { 
+          alert("✅ 品號產生成功：" + id); 
+          document.getElementById('v_search').value = '';
+          document.getElementById('v_item').value = '';
+          await loadHistory('vendor', true); 
+        } else {
+          alert("❌ 品號產生失敗！請確認廠商代號 [" + cleanVendorID + "] 是否正確，或檢查後端程式。");
+        }
+      } finally {
+        btn.disabled = false; 
+        btn.innerHTML = '產生品號並存檔';
       }
-      btn.disabled = false; 
-      btn.innerHTML = '產生品號並存檔';
     }
   </script>
 </body>
