@@ -251,33 +251,85 @@
       await loadHistory(t);
     }
 
+   // 1. 修改載入資料邏輯：讓選單同時包含「代號」與「名稱」，支援雙向打字搜尋
     window.onload = async () => {
       const d = await api("getInitialData", {});
-      if(d) {
-        const clist = document.getElementById('custList'), vlist = document.getElementById('vendList');
-        d.customers.forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; clist.appendChild(o); });
-        d.vendors.forEach(v => { const o = document.createElement('option'); o.value = v.id; o.textContent = v.name; vlist.appendChild(o); });
+      console.log("後端回傳的初始資料：", d); // 方便在 F12 控制台檢查資料是否有成功載入
+
+      if (d) {
+        const clist = document.getElementById('custList');
+        const vlist = document.getElementById('vendList');
+
+        // 載入客戶名單 (加入防呆檢查)
+        if (Array.isArray(d.customers)) {
+          d.customers.forEach(c => {
+            const o = document.createElement('option');
+            // 將 value 設為「代號 - 名稱」，打字時無論輸入代號或中文名稱都有反應
+            o.value = c.name ? `${c.id} - ${c.name}` : c.id;
+            clist.appendChild(o);
+          });
+        }
+
+        // 載入廠商名單 (加入防呆檢查)
+        if (Array.isArray(d.vendors)) {
+          d.vendors.forEach(v => {
+            const o = document.createElement('option');
+            // 同樣設為「代號 - 名稱」
+            o.value = v.name ? `${v.id} - ${v.name}` : v.id;
+            vlist.appendChild(o);
+          });
+        }
+
         render(d.projectHistory, 'project');
       }
     };
 
+    // 2. 修改客戶存檔：送出時自動把「 - 名稱」切掉，只保留純代號傳給後端
     async function saveP() {
-      const btn = document.getElementById('btnP'); btn.disabled = true;
+      const btn = document.getElementById('btnP'); 
+      btn.disabled = true;
       btn.innerHTML = '處理中<span class="spinner"></span>';
-      const id = await api("submitProject", { customerID: document.getElementById('p_search').value, amount: amtHid.value, itemName: document.getElementById('p_item').value, isCaseD: document.getElementById('p_d').value });
-      if(id) {
+      
+      // 透過 split(' - ')[0] 取出橫槓前面的純客戶代號
+      const rawCustomerID = document.getElementById('p_search').value.split(' - ')[0].trim();
+
+      const id = await api("submitProject", { 
+        customerID: rawCustomerID, 
+        amount: amtHid.value, 
+        itemName: document.getElementById('p_item').value, 
+        isCaseD: document.getElementById('p_d').value 
+      });
+      
+      if (id) {
         alert("案號產生成功：" + id + "（未稅金額：$" + Number(amtHid.value).toLocaleString('zh-TW') + "）");
         await loadHistory('project', true);
       }
-      btn.disabled = false; btn.innerHTML = '產生案號並存檔';
+      btn.disabled = false; 
+      btn.innerHTML = '產生案號並存檔';
     }
 
+    // 3. 修改廠商存檔：送出時自動把「 - 名稱」切掉，只保留純代號傳給後端
     async function saveV() {
-      const btn = document.getElementById('btnV'); btn.disabled = true;
+      const btn = document.getElementById('btnV'); 
+      btn.disabled = true;
       btn.innerHTML = '處理中<span class="spinner"></span>';
-      const id = await api("submitVendor", { vendorID: document.getElementById('v_search').value, property: document.getElementById('v_prop').value, city: document.getElementById('v_city').value, itemName: document.getElementById('v_item').value });
-      if(id) { alert("品號產生成功：" + id); await loadHistory('vendor', true); }
-      btn.disabled = false; btn.innerHTML = '產生品號並存檔';
+
+      // 透過 split(' - ')[0] 取出橫槓前面的純廠商代號
+      const rawVendorID = document.getElementById('v_search').value.split(' - ')[0].trim();
+
+      const id = await api("submitVendor", { 
+        vendorID: rawVendorID, 
+        property: document.getElementById('v_prop').value, 
+        city: document.getElementById('v_city').value, 
+        itemName: document.getElementById('v_item').value 
+      });
+      
+      if (id) { 
+        alert("品號產生成功：" + id); 
+        await loadHistory('vendor', true); 
+      }
+      btn.disabled = false; 
+      btn.innerHTML = '產生品號並存檔';
     }
   </script>
 </body>
