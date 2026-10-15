@@ -1,485 +1,148 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>ERP 編碼系統 - v3.3 極速版</title>
-  <style>
-    :root { --primary: #1a73e8; --bg: #f8f9fa; --danger: #d93025; --edit: #f4b400; }
-    body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; }
-    .card { background: #fff; width: 100%; max-width: 550px; padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); margin-bottom: 30px; position: relative; }
-    .version-badge { position: absolute; top: 10px; right: 15px; background: #e8f0fe; color: var(--primary); font-size: 12px; font-weight: bold; padding: 4px 8px; border-radius: 6px; }
-    label { display: block; margin-top: 20px; font-weight: bold; font-size: 18px; color: #333; }
-    input, select { width: 100%; padding: 15px; margin-top: 8px; border: 2px solid #eee; border-radius: 10px; box-sizing: border-box; font-size: 20px; outline: none; }
+/**
+ * ERP 編碼系統 - 後端閃電極速版 (v3.5)
+ */
+var MAX_HISTORY = 30;
+
+function doPost(e) {
+  try {
+    var params = JSON.parse(e.postData.contents);
+    var action = params.action;
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
     
-    .tabs { display: flex; border-bottom: 2px solid #eee; margin-bottom: 25px; margin-top: 10px; }
-    .tab { flex: 1; padding: 15px; text-align: center; cursor: pointer; color: #888; font-size: 18px; transition: all 0.2s; user-select: none; }
-    .tab.active { color: var(--primary); border-bottom: 4px solid var(--primary); font-weight: bold; }
-    
-    .hidden { display: none !important; }
-    
-    .btn { width: 100%; background: var(--primary); color: white; border: none; padding: 18px; border-radius: 10px; margin-top: 30px; cursor: pointer; font-size: 20px; font-weight: bold; }
-    .btn:disabled { background: #9aa0a6; cursor: not-allowed; }
-    .btn-del { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; margin-bottom: 5px; width: 60px; display: block; margin-left: auto; margin-right: auto; }
-    .btn-edit { background: var(--edit); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; margin-bottom: 5px; width: 60px; display: block; margin-left: auto; margin-right: auto; }
-    
-    .history-container { width: 100%; max-width: 1000px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow-x: auto; }
-    .history-header { display: flex; justify-content: space-between; align-items: center; }
-    .btn-refresh { background: #f1f3f4; color: #3c4043; border: 1px solid #dadce0; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; }
-    .btn-refresh:hover { background: #e8eaed; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 850px; table-layout: fixed; }
-    th, td { padding: 12px 8px; border-bottom: 1px solid #eee; text-align: left; word-wrap: break-word; }
-    th { background: #f8f9fa; color: #5f6368; font-size: 14px; }
-
-    .col-date  { width: 12%; }
-    .col-code  { width: 18%; font-weight: bold; }
-    .col-id    { width: 10%; }
-    .col-amt   { width: 13%; text-align: right; }
-    .col-prop  { width: 15%; text-align: center; }
-    .col-name  { width: 32%; text-align: center; }
-    .col-ctrl  { width: 10%; text-align: center; }
-
-    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #f3f3f3; border-top: 2px solid var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-left: 10px; vertical-align: middle; }
-    .loading-row { text-align: center !important; color: #666; font-size: 16px; padding: 30px !important; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-    .amt-row { display: flex; gap: 10px; align-items: stretch; }
-    .amt-row select { width: 110px; flex-shrink: 0; }
-    .amt-row input { flex: 1; }
-    .amt-note { margin-top: 8px; font-size: 15px; color: #1a73e8; font-weight: bold; min-height: 20px; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="version-badge">⚡ v3.3 極速版</div>
-    <div class="tabs">
-      <div class="tab active" id="tab-p" onclick="switchTab('project')">客戶工程案號</div>
-      <div class="tab" id="tab-v" onclick="switchTab('vendor')">廠商品號系統</div>
-    </div>
-            
-    <div id="project-form">
-      <label>搜尋客戶</label>
-      <input list="custList" id="p_search" placeholder="打字搜尋代號或名稱...">
-      <datalist id="custList"></datalist>
-
-      <label>金額</label>
-      <div class="amt-row">
-        <select id="p_tax_type" onchange="onTaxTypeChange()">
-          <option value="untaxed" selected>未稅</option>
-          <option value="taxed">含稅</option>
-        </select>
-        <input type="text" id="p_amt_show" placeholder="請輸入未稅金額">
-      </div>
-      <div class="amt-note" id="p_amt_note"></div>
-      <input type="hidden" id="p_amt">
-
-      <label>名稱/備註</label>
-      <input type="text" id="p_item" placeholder="名稱">
-      <label>強制 D 案?</label>
-      <select id="p_d"><option value="否">否</option><option value="是">是</option></select>
-      <button class="btn" id="btnP" onclick="saveP()">產生案號並存檔</button>
-    </div>
-
-    <div id="vendor-form" class="hidden">
-      <label>搜尋廠商</label>
-      <input list="vendList" id="v_search" placeholder="打字搜尋代號或名稱...">
-      <datalist id="vendList"></datalist>
-      <label>性質</label>
-      <select id="v_prop" onchange="checkCity()">
-        <option>承攬(連工帶料)</option><option>工資</option><option>7C1(吊車)</option><option>7C2(運輸)</option>
-      </select>
-      <div id="v_city_box" class="hidden">
-        <label>區域/縣市</label>
-        <select id="v_city">
-          <option value="">請選擇</option>
-          <optgroup label="北 (02)"><option>台北</option><option>桃園</option><option>新竹</option></optgroup>
-          <optgroup label="中 (04)"><option>台中</option><option>彰化</option></optgroup>
-          <optgroup label="南 (07)"><option>嘉義</option><option>台南</option><option>高雄</option></optgroup>
-        </select>
-      </div>
-      <label>品項/備註</label>
-      <input type="text" id="v_item" placeholder="品項名稱">
-      <button class="btn" id="btnV" onclick="saveV()">產生品號並存檔</button>
-    </div>
-  </div>
-
-  <div class="history-container">
-    <div class="history-header">
-      <h3 id="hTitle">最近明細紀錄 - 客戶專案</h3>
-      <button class="btn-refresh" onclick="loadHistory(currentTab, true)">🔄 重新整理表格</button>
-    </div>
-    <table>
-      <thead><tr id="hHead"></tr></thead>
-      <tbody id="hBody"></tbody>
-    </table>
-  </div>
-
-  <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbylFcjL1lhcDPRLgCS8ChlsDHOQ273SyIsNDGe65mThL0vjafFfTe3McX4dvbiLjDc3/exec"; 
-    const TIMEOUT_MS = 25000;     
-    const MAX_DISPLAY_ROWS = 50;  
-    const TAX_RATE = 1.05;        
-
-    let currentTab = 'project';
-    const cache = { project: null, vendor: null };
-    const pendingHistoryReq = { project: null, vendor: null };
-    const customerMap = {};
-    const vendorMap = {};
-    let loadingTimerInterval = null;
-
-    const amtInp = document.getElementById('p_amt_show');
-    const amtHid = document.getElementById('p_amt');
-    const taxTypeSel = document.getElementById('p_tax_type');
-    const amtNote = document.getElementById('p_amt_note');
-    let rawAmt = '';
-
-    function recalcAmt() {
-      if (!rawAmt) { amtHid.value = ''; amtNote.textContent = ''; return; }
-      const entered = Number(rawAmt);
-      let untaxed;
-      if (taxTypeSel.value === 'taxed') {
-        untaxed = Math.round(entered / TAX_RATE);
-        amtNote.textContent = `未稅金額：$${untaxed.toLocaleString('zh-TW')}（換算自含稅 $${entered.toLocaleString('zh-TW')}）`;
-      } else {
-        untaxed = entered;
-        amtNote.textContent = `未稅金額：$${untaxed.toLocaleString('zh-TW')}`;
-      }
-      amtHid.value = untaxed;
-    }
-
-    function onTaxTypeChange() {
-      amtInp.placeholder = taxTypeSel.value === 'taxed' ? '請輸入含稅金額' : '請輸入未稅金額';
-      recalcAmt();
-      if (document.activeElement !== amtInp && rawAmt) {
-        amtInp.value = Number(rawAmt).toLocaleString('zh-TW');
-      }
-    }
-
-    amtInp.addEventListener('input', function() {
-      rawAmt = this.value.replace(/\D/g, '');
-      this.value = rawAmt;
-      recalcAmt();
-    });
-    amtInp.addEventListener('blur', function() { if (rawAmt) this.value = Number(rawAmt).toLocaleString('zh-TW'); });
-    amtInp.addEventListener('focus', function() { this.value = rawAmt; });
-
-    function checkCity() {
-      const p = document.getElementById('v_prop').value;
-      document.getElementById('v_city_box').classList.toggle('hidden', !p.includes('7C'));
-    }
-
-    function fmtDate(dStr) {
-      if (!dStr) return "";
-      const d = new Date(dStr);
-      if (isNaN(d.getTime())) return dStr.split(' ')[0];
-      return `${d.getFullYear()}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}`;
-    }
-
-    async function api(action, data, silent = false) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
-      try {
-        const res = await fetch(API_URL, { 
-          method: "POST", 
-          redirect: "follow",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ action, data }),
-          signal: controller.signal
-        });
-        clearTimeout(timer);
-
-        const text = await res.text();
-        const json = JSON.parse(text);
-        if (json.error || json.status === 'error') {
-          if (!silent) alert("後端回傳錯誤：" + (json.error || json.message || "未知錯誤"));
-          return null;
-        }
-        return json.data !== undefined ? json.data : json;
-      } catch (e) { 
-        clearTimeout(timer);
-        console.error(`API Error (${action}):`, e); 
-        if (!silent) {
-          if (e.name === 'AbortError') {
-            alert("⚠️ 連線逾時！請點一下右上角「🔄 重新整理表格」。");
-          } else {
-            alert("⚠️ 系統通訊發生異常：" + e.message);
-          }
-        }
-        return null; 
-      }
-    }
-
-    function renderTableHeader(type) {
-      const head = document.getElementById('hHead');
-      head.innerHTML = type === 'project' 
-        ? `<th class="col-date">日期</th><th class="col-code">案號</th><th class="col-id">客戶</th><th class="col-amt">未稅金額</th><th class="col-name">名稱</th><th class="col-ctrl">管理</th>`
-        : `<th class="col-date">日期</th><th class="col-code">品號</th><th class="col-id">廠商</th><th class="col-prop">性質</th><th class="col-name">品項</th><th class="col-ctrl">管理</th>`;
-    }
-
-    function showTableLoading(type) {
-      renderTableHeader(type);
-      clearInterval(loadingTimerInterval);
-      let sec = 0;
-      const body = document.getElementById('hBody');
-      const label = type === 'project' ? '客戶專案' : '廠商品號';
-      
-      body.innerHTML = `<tr><td colspan="6" class="loading-row">⏳ 正在讀取【${label}】紀錄... <span id="waitSec">(0s)</span><span class="spinner"></span></td></tr>`;
-      
-      loadingTimerInterval = setInterval(() => {
-        sec++;
-        const el = document.getElementById('waitSec');
-        if (el) el.textContent = `(${sec}s)`;
-        else clearInterval(loadingTimerInterval);
-      }, 1000);
-    }
-
-    function render(rows, type) {
-      if (type !== currentTab) return;
-      clearInterval(loadingTimerInterval);
-
-      renderTableHeader(type);
-      const body = document.getElementById('hBody');
-      
-      const validRows = Array.isArray(rows) ? rows.filter(r => r && r[1] !== undefined && String(r[1]).trim() !== '') : [];
-
-      if (validRows.length === 0) {
-        body.innerHTML = "<tr><td colspan='6' style='text-align:center; padding: 20px;'>目前尚無紀錄</td></tr>";
-        return;
-      }
-
-      const displayRows = validRows.slice(0, MAX_DISPLAY_ROWS);
-      const fragment = document.createDocumentFragment();
-
-      displayRows.forEach(r => {
-        const tr = document.createElement('tr');
-        const rawAmtVal = String(r[3] || '').replace(/,/g, '');
-        const displayVal = type === 'project' ? Number(rawAmtVal || 0).toLocaleString() : (r[3] || '');
-        const itemName = String(r[5] || '');
-        const code = String(r[1] || '');
-        
-        tr.innerHTML = `
-          <td class="col-date">${fmtDate(r[0])}</td>
-          <td class="col-code">${code}</td>
-          <td class="col-id">${r[2] || ''}</td>
-          <td class="${type === 'project' ? 'col-name' : 'col-prop'}">${displayVal}</td>
-          <td class="col-name">${itemName}</td>
-          <td class="col-ctrl">
-            <button class="btn-edit" onclick="editRow('${code}', '${itemName.replace(/'/g, "\\'")}', '${rawAmtVal}')">編輯</button>
-            <button class="btn-del" onclick="delRow('${code}')">刪除</button>
-          </td>
-        `;
-        fragment.appendChild(tr);
+    if (action === "getInitialData") {
+      return response({
+        customers: getMaster(ss, "客戶主檔"),
+        vendors: getMaster(ss, "廠商主檔"),
+        projectHistory: getRecentHistory(ss, "客戶專案"),
+        vendorHistory: getRecentHistory(ss, "廠商品號")
       });
-      body.innerHTML = '';
-      body.appendChild(fragment);
     }
-
-    async function loadHistory(type, forceRefresh = false) {
-      if (!forceRefresh && cache[type]) { 
-        render(cache[type], type); 
-        return; 
-      }
-      
-      if (type === currentTab) {
-        showTableLoading(type);
-      }
-
-      if (!pendingHistoryReq[type] || forceRefresh) {
-        pendingHistoryReq[type] = api("getHistory", { type }, true).finally(() => {
-          pendingHistoryReq[type] = null;
-        });
-      }
-
-      const data = await pendingHistoryReq[type];
-      if (data) { 
-        cache[type] = data; 
-        render(data, type); 
-      } else if (type === currentTab) {
-        clearInterval(loadingTimerInterval);
-        document.getElementById('hBody').innerHTML = `<tr><td colspan="6" style="text-align:center; color:#d93025; padding:20px;">⚠️ 讀取逾時，請點右上角「🔄 重新整理表格」。</td></tr>`;
-      }
+    if (action === "getHistory") {
+      var sheetName = (params.data && params.data.type === 'project') ? "客戶專案" : "廠商品號";
+      return response(getRecentHistory(ss, sheetName));
     }
+    if (action === "submitProject") return response(submitProject(ss, params.data));
+    if (action === "submitVendor") return response(submitVendor(ss, params.data));
+    if (action === "deleteRow") return response(deleteRow(ss, params.data));
+    if (action === "updateRow") return response(updateRow(ss, params.data));
+    
+    return response("未知的動作指令: " + action, "error");
+  } catch (err) { 
+    return response(err.toString(), "error"); 
+  }
+}
 
-    async function switchTab(t) {
-      currentTab = t;
-      const isP = t === 'project';
-      document.getElementById('project-form').classList.toggle('hidden', !isP);
-      document.getElementById('vendor-form').classList.toggle('hidden', isP);
-      document.getElementById('tab-p').classList.toggle('active', isP);
-      document.getElementById('tab-v').classList.toggle('active', !isP);
-      document.getElementById('hTitle').innerText = isP ? "最近明細紀錄 - 客戶專案" : "最近明細紀錄 - 廠商品號";
-      
-      await loadHistory(t);
+function getMaster(ss, name) {
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) return [];
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var data = sheet.getRange(2, 1, lastRow - 1, 2).getDisplayValues();
+  var list = [];
+  for (var i = 0; i < data.length; i++) {
+    var id = data[i][0].trim();
+    var title = data[i][1].trim();
+    if (id !== "") list.push({ id: id, name: title });
+  }
+  return list;
+}
+
+function getRecentHistory(ss, name) {
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) return [];
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var startRow = Math.max(2, lastRow - MAX_HISTORY + 1);
+  var data = sheet.getRange(startRow, 1, lastRow - startRow + 1, 6).getDisplayValues();
+  return data.filter(function(r) { return r[1] && r[1].trim() !== ""; }).reverse();
+}
+
+// 閃電版：直接依據當前列數計算流水號，不跑迴圈，0.1秒完成寫入
+function submitProject(ss, data) {
+  var sheet = ss.getSheetByName("客戶專案");
+  var year = new Date().getFullYear().toString().substring(2);
+  var cleanCustID = (data.customerID || "").toString().trim();
+  var amt = Number((data.amount || "0").toString().replace(/,/g, ''));
+  var type = data.isCaseD === "是" ? "D" : (amt >= 8000000 ? "A" : (amt >= 1000000 ? "B" : "C"));
+  
+  var prefix = type + year + cleanCustID;
+  var lastRow = sheet.getLastRow();
+  var count = (lastRow < 2) ? 1 : (lastRow - 1 + 1); // 簡易流水號基底
+  
+  var neededLength = Math.max(1, 10 - prefix.length);
+  var finalID = prefix + count.toString().padStart(neededLength, '0');
+  
+  sheet.appendRow([new Date(), finalID, cleanCustID, amt, type, data.itemName || ""]);
+  SpreadsheetApp.flush();
+  return finalID;
+}
+
+function submitVendor(ss, data) {
+  var sheet = ss.getSheetByName("廠商品號");
+  var cat = "";
+  var prop = (data.property || "").toString();
+  var cleanVendorID = (data.vendorID || "").toString().trim();
+  
+  if (prop.indexOf("連工帶料") !== -1) cat = "7A";
+  else if (prop.indexOf("工資") !== -1) cat = "7B";
+  else if (prop.indexOf("7C1") !== -1 || prop.indexOf("吊車") !== -1) cat = "7C1";
+  else if (prop.indexOf("7C2") !== -1 || prop.indexOf("運輸") !== -1) cat = "7C2";
+  
+  var regCode = "00";
+  if (cat.indexOf("7C") === 0) {
+    var north = ["台北", "桃園", "新竹", "宜蘭", "基隆", "離島", "花蓮", "台東"]; 
+    var central = ["台中", "苗栗", "彰化", "南投"]; 
+    var south = ["雲林", "嘉義", "台南", "高雄", "屏東"]; 
+    if (north.indexOf(data.city) !== -1) regCode = "02";
+    else if (central.indexOf(data.city) !== -1) regCode = "04";
+    else if (south.indexOf(data.city) !== -1) regCode = "07";
+  }
+  
+  var prefix = (cat === "7A" || cat === "7B") ? (cat + cleanVendorID) : (cat.substring(0, 3) + regCode);
+  var lastRow = sheet.getLastRow();
+  var count = (lastRow < 2) ? 1 : (lastRow - 1 + 1);
+  
+  var finalID = cat.indexOf("7C") === 0 ? prefix + count.toString().padStart(3, '0') : prefix + count.toString().padStart(2, '0');
+  
+  sheet.appendRow([new Date(), finalID, cleanVendorID, prop, data.city || "", data.itemName || ""]);
+  SpreadsheetApp.flush();
+  return finalID;
+}
+
+function updateRow(ss, data) {
+  var sheetName = data.type === 'project' ? "客戶專案" : "廠商品號";
+  var sheet = ss.getSheetByName(sheetName);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return "無資料可更新";
+  var targetCode = (data.code || "").toString().trim();
+  var values = sheet.getRange(2, 2, lastRow - 1, 1).getDisplayValues(); 
+  for (var i = values.length - 1; i >= 0; i--) {
+    if (values[i][0].trim() === targetCode) {
+      var rowNum = i + 2;
+      sheet.getRange(rowNum, 4).setValue(data.newAmt);
+      sheet.getRange(rowNum, 6).setValue(data.newName);
+      return "更新成功";
     }
+  }
+  return "找不到該筆資料";
+}
 
-    window.onload = async () => {
-      showTableLoading('project');
-      const d = await api("getInitialData", {});
-      if (d) {
-        const clist = document.getElementById('custList');
-        const vlist = document.getElementById('vendList');
-
-        if (Array.isArray(d.customers)) {
-          d.customers.forEach(c => { 
-            const o = document.createElement('option'); 
-            o.value = c.name ? `${c.id} - ${c.name}` : c.id; 
-            clist.appendChild(o);
-            customerMap[c.name] = c.id;
-          });
-        }
-
-        if (Array.isArray(d.vendors)) {
-          d.vendors.forEach(v => { 
-            const o = document.createElement('option'); 
-            o.value = v.name ? `${v.id} - ${v.name}` : v.id; 
-            vlist.appendChild(o);
-            vendorMap[v.name] = v.id;
-          });
-        }
-
-        if (d.projectHistory) {
-          cache.project = d.projectHistory;
-          render(d.projectHistory, 'project');
-        } else {
-          loadHistory('project', false);
-        }
-
-        if (d.vendorHistory) {
-          cache.vendor = d.vendorHistory;
-        } else {
-          loadHistory('vendor', false);
-        }
-      }
-    };
-
-    async function editRow(code, oldName, oldAmt) {
-      let newName = prompt(`修改 [${code}] 的名稱/品項：`, oldName);
-      if (newName === null) return;
-
-      let newAmt = oldAmt;
-      if (currentTab === 'project') {
-        let amtInput = prompt(`修改 [${code}] 的未稅金額 (僅限數字)：`, oldAmt);
-        if (amtInput === null) return;
-        newAmt = amtInput.replace(/\D/g, '');
-      }
-
-      const res = await api("updateRow", { type: currentTab, code, newName, newAmt });
-      if (res !== null) {
-        alert(res || "更新成功");
-        if (cache[currentTab]) {
-          const target = cache[currentTab].find(r => String(r[1]) === String(code));
-          if (target) {
-            target[3] = newAmt;
-            target[5] = newName;
-            render(cache[currentTab], currentTab);
-            return;
-          }
-        }
-        loadHistory(currentTab, true);
-      }
+function deleteRow(ss, data) {
+  var sheetName = data.type === 'project' ? "客戶專案" : "廠商品號";
+  var sheet = ss.getSheetByName(sheetName);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return "無資料可刪除";
+  var targetCode = (data.code || "").toString().trim();
+  var values = sheet.getRange(2, 2, lastRow - 1, 1).getDisplayValues(); 
+  for (var i = values.length - 1; i >= 0; i--) {
+    if (values[i][0].trim() === targetCode) {
+      sheet.deleteRow(i + 2); 
+      return "刪除成功";
     }
+  }
+  return "找不到該筆資料";
+}
 
-    async function delRow(code) {
-      if (!confirm(`確定要刪除編號 ${code} 嗎？`)) return;
-      const res = await api("deleteRow", { type: currentTab, code });
-      if (res !== null) {
-        alert(res || "刪除成功");
-        if (cache[currentTab]) {
-          cache[currentTab] = cache[currentTab].filter(r => String(r[1]) !== String(code));
-          render(cache[currentTab], currentTab);
-          return;
-        }
-        loadHistory(currentTab, true);
-      }
-    }
-
-    async function saveP() {
-      const rawInput = document.getElementById('p_search').value.trim();
-      if (!rawInput) { alert("請先選擇或輸入客戶！"); return; }
-      if (!amtHid.value) { alert("請輸入金額！"); return; }
-
-      let cleanCustomerID = rawInput.split(' - ')[0].trim();
-      if (customerMap[cleanCustomerID]) cleanCustomerID = customerMap[cleanCustomerID];
-
-      const itemVal = document.getElementById('p_item').value;
-      const amtVal = amtHid.value;
-      const isDVal = document.getElementById('p_d').value;
-
-      const btn = document.getElementById('btnP'); 
-      btn.disabled = true;
-      btn.innerHTML = '處理中<span class="spinner"></span>';
-
-      try {
-        const id = await api("submitProject", { 
-          customerID: cleanCustomerID, 
-          amount: amtVal, 
-          itemName: itemVal, 
-          isCaseD: isDVal 
-        });
-
-        if (id) {
-          const newRow = [new Date().toISOString(), id, cleanCustomerID, amtVal, "", itemVal];
-          if (!Array.isArray(cache.project)) cache.project = [];
-          cache.project.unshift(newRow);
-          render(cache.project, 'project');
-
-          document.getElementById('p_search').value = '';
-          document.getElementById('p_amt_show').value = '';
-          document.getElementById('p_item').value = '';
-          rawAmt = ''; recalcAmt();
-
-          alert("✅ 案號產生成功：" + id + "\n（未稅金額：$" + Number(amtVal).toLocaleString('zh-TW') + "）");
-        }
-      } finally {
-        btn.disabled = false; 
-        btn.innerHTML = '產生案號並存檔';
-      }
-    }
-
-    async function saveV() {
-      const rawInput = document.getElementById('v_search').value.trim();
-      if (!rawInput) { alert("請先選擇或輸入廠商！"); return; }
-
-      const prop = document.getElementById('v_prop').value;
-      const city = document.getElementById('v_city').value;
-      const itemVal = document.getElementById('v_item').value;
-
-      if (prop.includes('7C') && !city) {
-        alert("選擇 7C1 或 7C2 時，請選擇「區域/縣市」！");
-        return;
-      }
-
-      let cleanVendorID = rawInput.split(' - ')[0].trim();
-      if (vendorMap[cleanVendorID]) cleanVendorID = vendorMap[cleanVendorID];
-
-      const btn = document.getElementById('btnV'); 
-      btn.disabled = true;
-      btn.innerHTML = '處理中<span class="spinner"></span>';
-
-      try {
-        const id = await api("submitVendor", { 
-          vendorID: cleanVendorID, 
-          property: prop, 
-          city: city, 
-          itemName: itemVal 
-        });
-
-        if (id) { 
-          const newRow = [new Date().toISOString(), id, cleanVendorID, prop, city || "", itemVal];
-          if (!Array.isArray(cache.vendor)) cache.vendor = [];
-          cache.vendor.unshift(newRow);
-          render(cache.vendor, 'vendor');
-
-          document.getElementById('v_search').value = '';
-          document.getElementById('v_item').value = '';
-
-          alert("✅ 品號產生成功：" + id); 
-        }
-      } finally {
-        btn.disabled = false; 
-        btn.innerHTML = '產生品號並存檔';
-      }
-    }
-  </script>
-</body>
-</html>
+function response(d, s) {
+  return ContentService.createTextOutput(JSON.stringify({status: s || "success", data: d})).setMimeType(ContentService.MimeType.JSON);
+}
