@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>ERP 編碼系統 - v3.0 極速版</title>
+  <title>ERP 編碼系統 - v3.1 介面優化版</title>
   <style>
     :root { --primary: #1a73e8; --bg: #f8f9fa; --danger: #d93025; --edit: #f4b400; }
     body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; }
@@ -33,13 +33,14 @@
     th, td { padding: 12px 8px; border-bottom: 1px solid #eee; text-align: left; word-wrap: break-word; }
     th { background: #f8f9fa; color: #5f6368; font-size: 14px; }
 
-    /* 寬度百分比設定 */
-    .col-date { width: 12%; }
-    .col-code { width: 18%; font-weight: bold; }
-    .col-id   { width: 10%; }
-    .col-amt  { width: 13%; text-align: right; }
-    .col-name { width: 37%; }
-    .col-ctrl { width: 10%; text-align: center; }
+    /* 各欄位寬度與對齊設定 */
+    .col-date  { width: 12%; }
+    .col-code  { width: 18%; font-weight: bold; }
+    .col-id    { width: 10%; }
+    .col-amt   { width: 13%; text-align: right; }
+    .col-prop  { width: 15%; text-align: center; } /* 性質欄位置中 */
+    .col-name  { width: 32%; text-align: center; } /* 品項欄位置中 */
+    .col-ctrl  { width: 10%; text-align: center; }
 
     /* 轉圈圈動畫 */
     .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #f3f3f3; border-top: 2px solid var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-left: 10px; vertical-align: middle; }
@@ -55,7 +56,7 @@
 </head>
 <body>
   <div class="card">
-    <div class="version-badge">⚡ v3.0 極速版</div>
+    <div class="version-badge">⚡ v3.1 極速版</div>
     <div class="tabs">
       <div class="tab active" id="tab-p" onclick="switchTab('project')">客戶工程案號</div>
       <div class="tab" id="tab-v" onclick="switchTab('vendor')">廠商品號系統</div>
@@ -120,11 +121,10 @@
 
   <script>
     // ====== 可調整參數區 ======
-    // ⚠️ 注意：如果你在 GAS 點了「新增部署作業」，請把產生的新網址貼在下方雙引號內！
     const API_URL = "https://script.google.com/macros/s/AKfycbylFcjL1lhcDPRLgCS8ChlsDHOQ273SyIsNDGe65mThL0vjafFfTe3McX4dvbiLjDc3/exec"; 
-    const TIMEOUT_MS = 35000;     // 單次請求逾時秒數放寬至 35 秒
-    const MAX_DISPLAY_ROWS = 50;  // 畫面表格最多顯示筆數
-    const TAX_RATE = 1.05;        // 稅率 5%
+    const TIMEOUT_MS = 35000;     
+    const MAX_DISPLAY_ROWS = 50;  
+    const TAX_RATE = 1.05;        
     // ==========================
 
     let currentTab = 'project';
@@ -175,10 +175,18 @@
       document.getElementById('v_city_box').classList.toggle('hidden', !p.includes('7C'));
     }
 
+    // ★ 修改：只顯示日期（YYYY/MM/DD），不顯示時間
     function fmtDate(dStr) {
       if (!dStr) return "";
       const d = new Date(dStr);
-      return isNaN(d.getTime()) ? dStr : `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+      if (isNaN(d.getTime())) {
+        // 如果原本就是字串（如 "2026/10/15 13:29:55"），取前面空白或空格以前的部分
+        return dStr.split(' ')[0];
+      }
+      const y = d.getFullYear();
+      const m = (d.getMonth() + 1).toString().padStart(2, '0');
+      const day = d.getDate().toString().padStart(2, '0');
+      return `${y}/${m}/${day}`;
     }
 
     async function api(action, data, silent = false) {
@@ -207,7 +215,7 @@
         console.error(`API Error (${action}):`, e); 
         if (!silent) {
           if (e.name === 'AbortError') {
-            alert("⚠️ 連線超過 35 秒未回應！請點一下右上角「🔄 重新整理表格」確認資料是否已寫入。");
+            alert("⚠️ 連線超過 35 秒未回應！請點一下右上角「🔄 重新整理表格」。");
           } else {
             alert("⚠️ 系統通訊發生異常：" + e.message);
           }
@@ -216,11 +224,12 @@
       }
     }
 
+    // ★ 修改：表頭的性質與品項欄位加入對應的 class 支援置中
     function renderTableHeader(type) {
       const head = document.getElementById('hHead');
       head.innerHTML = type === 'project' 
         ? `<th class="col-date">日期</th><th class="col-code">案號</th><th class="col-id">客戶</th><th class="col-amt">未稅金額</th><th class="col-name">名稱</th><th class="col-ctrl">管理</th>`
-        : `<th class="col-date">日期</th><th class="col-code">品號</th><th class="col-id">廠商</th><th class="col-amt">性質</th><th class="col-name">品項</th><th class="col-ctrl">管理</th>`;
+        : `<th class="col-date">日期</th><th class="col-code">品號</th><th class="col-id">廠商</th><th class="col-prop">性質</th><th class="col-name">品項</th><th class="col-ctrl">管理</th>`;
     }
 
     function showTableLoading(type) {
@@ -264,11 +273,12 @@
         const itemName = String(r[5] || '');
         const code = String(r[1] || '');
         
+        // ★ 修改：性質欄位使用 col-prop，品項欄位使用 col-name，兩者皆為置中對齊
         tr.innerHTML = `
           <td class="col-date">${fmtDate(r[0])}</td>
           <td class="col-code">${code}</td>
           <td class="col-id">${r[2] || ''}</td>
-          <td class="col-amt">${displayVal}</td>
+          <td class="${type === 'project' ? 'col-name' : 'col-prop'}">${displayVal}</td>
           <td class="col-name">${itemName}</td>
           <td class="col-ctrl">
             <button class="btn-edit" onclick="editRow('${code}', '${itemName.replace(/'/g, "\\'")}', '${rawAmtVal}')">編輯</button>
@@ -303,7 +313,7 @@
         render(data, type); 
       } else if (type === currentTab) {
         clearInterval(loadingTimerInterval);
-        document.getElementById('hBody').innerHTML = `<tr><td colspan="6" style="text-align:center; color:#d93025; padding:20px;">⚠️ 讀取逾時，請點右上角「🔄 重新整理表格」再試一次。</td></tr>`;
+        document.getElementById('hBody').innerHTML = `<tr><td colspan="6" style="text-align:center; color:#d93025; padding:20px;">⚠️ 讀取逾時，請點右上角「🔄 重新整理表格」。</td></tr>`;
       }
     }
 
@@ -353,7 +363,6 @@
           cache.vendor = d.vendorHistory;
           if (currentTab === 'vendor') render(d.vendorHistory, 'vendor');
         } else {
-          // 相容舊版後端：若初始資料沒附帶廠商紀錄，延遲 0.5 秒預載
           setTimeout(() => loadHistory('vendor', false), 500);
         }
       }
