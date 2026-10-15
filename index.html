@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>ERP 編碼系統 - v3.1 介面優化版</title>
+  <title>ERP 編碼系統 - v3.2 極速版</title>
   <style>
     :root { --primary: #1a73e8; --bg: #f8f9fa; --danger: #d93025; --edit: #f4b400; }
     body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; }
@@ -16,7 +16,6 @@
     .tab { flex: 1; padding: 15px; text-align: center; cursor: pointer; color: #888; font-size: 18px; transition: all 0.2s; user-select: none; }
     .tab.active { color: var(--primary); border-bottom: 4px solid var(--primary); font-weight: bold; }
     
-    /* 隱藏控制 */
     .hidden { display: none !important; }
     
     .btn { width: 100%; background: var(--primary); color: white; border: none; padding: 18px; border-radius: 10px; margin-top: 30px; cursor: pointer; font-size: 20px; font-weight: bold; }
@@ -33,21 +32,19 @@
     th, td { padding: 12px 8px; border-bottom: 1px solid #eee; text-align: left; word-wrap: break-word; }
     th { background: #f8f9fa; color: #5f6368; font-size: 14px; }
 
-    /* 各欄位寬度與對齊設定 */
+    /* 欄位寬度與對齊設定 */
     .col-date  { width: 12%; }
     .col-code  { width: 18%; font-weight: bold; }
     .col-id    { width: 10%; }
     .col-amt   { width: 13%; text-align: right; }
-    .col-prop  { width: 15%; text-align: center; } /* 性質欄位置中 */
-    .col-name  { width: 32%; text-align: center; } /* 品項欄位置中 */
+    .col-prop  { width: 15%; text-align: center; }
+    .col-name  { width: 32%; text-align: center; }
     .col-ctrl  { width: 10%; text-align: center; }
 
-    /* 轉圈圈動畫 */
     .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #f3f3f3; border-top: 2px solid var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-left: 10px; vertical-align: middle; }
     .loading-row { text-align: center !important; color: #666; font-size: 16px; padding: 30px !important; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-    /* 金額列（含稅/未稅切換） */
     .amt-row { display: flex; gap: 10px; align-items: stretch; }
     .amt-row select { width: 110px; flex-shrink: 0; }
     .amt-row input { flex: 1; }
@@ -56,7 +53,7 @@
 </head>
 <body>
   <div class="card">
-    <div class="version-badge">⚡ v3.1 極速版</div>
+    <div class="version-badge">⚡ v3.2 極速版</div>
     <div class="tabs">
       <div class="tab active" id="tab-p" onclick="switchTab('project')">客戶工程案號</div>
       <div class="tab" id="tab-v" onclick="switchTab('vendor')">廠商品號系統</div>
@@ -120,12 +117,10 @@
   </div>
 
   <script>
-    // ====== 可調整參數區 ======
     const API_URL = "https://script.google.com/macros/s/AKfycbylFcjL1lhcDPRLgCS8ChlsDHOQ273SyIsNDGe65mThL0vjafFfTe3McX4dvbiLjDc3/exec"; 
-    const TIMEOUT_MS = 35000;     
+    const TIMEOUT_MS = 30000;     
     const MAX_DISPLAY_ROWS = 50;  
     const TAX_RATE = 1.05;        
-    // ==========================
 
     let currentTab = 'project';
     const cache = { project: null, vendor: null };
@@ -175,18 +170,11 @@
       document.getElementById('v_city_box').classList.toggle('hidden', !p.includes('7C'));
     }
 
-    // ★ 修改：只顯示日期（YYYY/MM/DD），不顯示時間
     function fmtDate(dStr) {
       if (!dStr) return "";
       const d = new Date(dStr);
-      if (isNaN(d.getTime())) {
-        // 如果原本就是字串（如 "2026/10/15 13:29:55"），取前面空白或空格以前的部分
-        return dStr.split(' ')[0];
-      }
-      const y = d.getFullYear();
-      const m = (d.getMonth() + 1).toString().padStart(2, '0');
-      const day = d.getDate().toString().padStart(2, '0');
-      return `${y}/${m}/${day}`;
+      if (isNaN(d.getTime())) return dStr.split(' ')[0];
+      return `${d.getFullYear()}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}`;
     }
 
     async function api(action, data, silent = false) {
@@ -215,7 +203,7 @@
         console.error(`API Error (${action}):`, e); 
         if (!silent) {
           if (e.name === 'AbortError') {
-            alert("⚠️ 連線超過 35 秒未回應！請點一下右上角「🔄 重新整理表格」。");
+            alert("⚠️ 連線逾時！請點一下右上角「🔄 重新整理表格」。");
           } else {
             alert("⚠️ 系統通訊發生異常：" + e.message);
           }
@@ -224,7 +212,6 @@
       }
     }
 
-    // ★ 修改：表頭的性質與品項欄位加入對應的 class 支援置中
     function renderTableHeader(type) {
       const head = document.getElementById('hHead');
       head.innerHTML = type === 'project' 
@@ -273,7 +260,6 @@
         const itemName = String(r[5] || '');
         const code = String(r[1] || '');
         
-        // ★ 修改：性質欄位使用 col-prop，品項欄位使用 col-name，兩者皆為置中對齊
         tr.innerHTML = `
           <td class="col-date">${fmtDate(r[0])}</td>
           <td class="col-code">${code}</td>
@@ -329,8 +315,11 @@
       await loadHistory(t);
     }
 
+    // ★ v3.2 升級：非同步初始載入，主檔先開，歷史紀錄背景載入
     window.onload = async () => {
       showTableLoading('project');
+      
+      // 1. 先快速抓取主檔與歷史
       const d = await api("getInitialData", {});
       if (d) {
         const clist = document.getElementById('custList');
@@ -357,13 +346,14 @@
         if (d.projectHistory) {
           cache.project = d.projectHistory;
           render(d.projectHistory, 'project');
+        } else {
+          loadHistory('project', false);
         }
 
         if (d.vendorHistory) {
           cache.vendor = d.vendorHistory;
-          if (currentTab === 'vendor') render(d.vendorHistory, 'vendor');
         } else {
-          setTimeout(() => loadHistory('vendor', false), 500);
+          loadHistory('vendor', false);
         }
       }
     };
